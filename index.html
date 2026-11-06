@@ -68,16 +68,24 @@ button, input, select { font: inherit; color: inherit; }
 
 .app {
   max-width: 1040px; margin: 0 auto; display: grid; gap: 16px;
-  grid-template-areas: "head" "sum" "form" "chart" "list" "brk" "bk" "foot";
+  grid-template-areas: "head" "tabs" "sum" "form" "chart" "list" "brk" "bk" "foot";
 }
 .app > * { min-width: 0; }
 @media (min-width: 860px) {
   .app {
     grid-template-columns: 340px minmax(0, 1fr);
-    grid-template-areas: "head head" "sum sum" "form chart" "form list" "form brk" "form bk" "foot foot";
+    grid-template-areas: "head head" "tabs tabs" "sum sum" "form chart" "form list" "form brk" "form bk" "foot foot";
     align-items: start;
   }
   #formCard { position: sticky; top: 16px; align-self: start; }
+  .app[data-view="per"] {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "head head" "tabs tabs" "pctl pctl" "psum psum" "pchart pchart" "pbrk plist" "bk bk" "foot foot";
+  }
+}
+.app[data-view="per"] { grid-template-areas: "head" "tabs" "pctl" "psum" "pchart" "pbrk" "plist" "bk" "foot"; }
+@media (min-width: 860px) {
+  .app[data-view="per"] { grid-template-areas: "head head" "tabs tabs" "pctl pctl" "psum psum" "pchart pchart" "pbrk plist" "bk bk" "foot foot"; }
 }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
@@ -206,6 +214,22 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
   .bar i { transition: width 0.25s ease; }
 }
 
+
+/* abas e períodos */
+.views { grid-area: tabs; justify-self: start; }
+.views button { height: 38px; padding: 0 20px; font-size: 14px; }
+#pctl { grid-area: pctl; }
+#psum { grid-area: psum; }
+#pchart { grid-area: pchart; }
+#pbrk { grid-area: pbrk; }
+#plist { grid-area: plist; }
+.pctlrow { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between; }
+.pctlrow .field { flex: 1; min-width: 190px; }
+.pcustom { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+#pctl label { font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px; }
+#prange { margin: 12px 0 0; }
+.prow { grid-template-columns: auto minmax(0, 1fr) auto; }
+.moreRow { margin-top: 12px; }
 #bkCard{grid-area:bk}
 .hint{margin:0 0 12px;color:var(--muted);font-size:13px}
 .bkrow{display:flex;flex-wrap:wrap;gap:8px}
@@ -214,16 +238,52 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
 </style>
 </head>
 <body>
-<div class="app">
+<div class="app" id="app" data-view="mes">
   <header class="head">
     <h1>Livro-caixa</h1>
-    <div class="monthnav" role="group" aria-label="Mês exibido">
+    <div class="monthnav" id="monthnav" role="group" aria-label="Mês exibido">
       <button type="button" class="iconbtn" data-nav="-1" aria-label="Mês anterior">&#8249;</button>
       <div class="label" id="mesLabel" aria-live="polite"></div>
       <button type="button" class="iconbtn" data-nav="1" aria-label="Próximo mês">&#8250;</button>
       <button type="button" class="textbtn" id="btnHoje" data-nav="hoje" hidden>Mês atual</button>
     </div>
   </header>
+
+  <nav class="tabs views" id="views" aria-label="Seções">
+    <button type="button" data-view="mes" aria-pressed="true">Mês</button>
+    <button type="button" data-view="per" aria-pressed="false">Períodos</button>
+  </nav>
+
+  <section class="card" id="pctl" aria-label="Filtros do período" hidden>
+    <div class="pctlrow">
+      <div class="tabs" role="group" aria-label="Tipo">
+        <button type="button" data-ptipo="despesa" aria-pressed="true">Despesas</button>
+        <button type="button" data-ptipo="receita" aria-pressed="false">Receitas</button>
+      </div>
+      <div class="field">
+        <label for="pper">Período</label>
+        <select id="pper"></select>
+      </div>
+    </div>
+    <div class="pcustom" id="pcustom" hidden>
+      <div class="field"><label for="pde">De</label><select id="pde"></select></div>
+      <div class="field"><label for="pate">Até</label><select id="pate"></select></div>
+    </div>
+    <p class="hint" id="prange"></p>
+  </section>
+  <section class="card sum" id="psum" aria-label="Resumo do período" hidden></section>
+  <section class="card" id="pchart" hidden>
+    <div class="cardhead"><h2 id="pchartTitle">Por mês</h2></div>
+    <div id="pchartBox"></div>
+  </section>
+  <section class="card" id="pbrk" hidden>
+    <div class="cardhead"><h2>Por categoria</h2></div>
+    <div id="pbrkBox"></div>
+  </section>
+  <section class="card" id="plist" hidden>
+    <div class="cardhead"><h2>Lançamentos do período</h2></div>
+    <div id="plistBox"></div>
+  </section>
 
   <section class="card sum" id="sum" aria-label="Resumo do mês"></section>
 
@@ -338,7 +398,8 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
   var state = {
     lanc: [], custom: { receita: [], despesa: [] },
     mes: hoje().slice(0, 7), tipo: 'despesa', aba: 'despesa',
-    pendente: null, pronto: false, erro: '', modo: 'local'
+    pendente: null, pronto: false, erro: '', modo: 'local',
+    view: 'mes', ptipo: 'despesa', pper: 'ano:' + hoje().slice(0, 4), pde: null, pate: null, pall: false
   };
   var store = null;
 
@@ -468,6 +529,174 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
     }).join('') + '</ul>';
   }
 
+
+  /* ---------- períodos ---------- */
+  function anoAtual() { return hoje().slice(0, 4); }
+  function mesesDados() {
+    var ms = {};
+    state.lanc.forEach(function (l) { ms[mesDe(l.data)] = 1; });
+    return Object.keys(ms).sort();
+  }
+  function limitesMeses() {
+    var cur = hoje().slice(0, 7), ms = mesesDados();
+    var first = ms.length && ms[0] < cur ? ms[0] : cur;
+    var last = ms.length && ms[ms.length - 1] > cur ? ms[ms.length - 1] : cur;
+    return [first, last];
+  }
+  function listaMeses(a, b) {
+    var out = [], m = a, n = 0;
+    while (m <= b && n < 600) { out.push(m); m = shiftMes(m, 1); n++; }
+    return out;
+  }
+  function rangePer() {
+    var lim = limitesMeses(), first = lim[0], last = lim[1], v = state.pper, a, b;
+    if (v === 'sempre') { a = first; b = last; }
+    else if (v === '12m') { b = last; a = shiftMes(b, -11); }
+    else if (v.indexOf('ano:') === 0) {
+      var y = v.slice(4);
+      a = y + '-01'; b = y + '-12';
+      if (y === anoAtual() && b > last) b = last;
+    } else {
+      a = state.pde || first; b = state.pate || last;
+      if (a > b) { var t = a; a = b; b = t; }
+    }
+    if (v !== 'custom' && a < first) a = first;
+    if (a > b) b = a;
+    return [a, b];
+  }
+  function setOpts(sel, opts, value) {
+    var sig = opts.map(function (o) { return o[0] + '|' + o[1]; }).join('~');
+    if (sel.getAttribute('data-sig') !== sig) {
+      sel.innerHTML = opts.map(function (o) { return '<option value="' + esc(o[0]) + '">' + esc(o[1]) + '</option>'; }).join('');
+      sel.setAttribute('data-sig', sig);
+    }
+    sel.value = value;
+    if (sel.value !== value && opts.length) sel.value = opts[0][0];
+  }
+  function diaCurto(iso, comAno) {
+    var p = iso.split('-').map(Number);
+    var o = { day: 'numeric', month: 'short' };
+    if (comAno) o.year = 'numeric';
+    return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString('pt-BR', o).replace(/\./g, '');
+  }
+
+  function barChart(items, cls, W, minLabel) {
+    var H = 240, L = 46, R = 6, T = 20, B = 28, pw = W - L - R, ph = H - T - B;
+    var mx = 0;
+    items.forEach(function (it) { if (it.value > mx) mx = it.value; });
+    var max = niceMax(mx / 100);
+    var band = pw / items.length, bw = Math.min(44, band * 0.62);
+    var step = Math.max(1, Math.ceil(minLabel / band));
+    var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Gráfico de barras por período">';
+    var k;
+    for (k = 0; k <= 5; k++) {
+      var gy = T + ph * (1 - k / 5);
+      s += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + gy.toFixed(1) + '" y2="' + gy.toFixed(1) + '"/>';
+      s += '<text x="' + (L - 8) + '" y="' + gy.toFixed(1) + '" text-anchor="end" dy="0.32em">' + CMP.format(max * k / 5) + '</text>';
+    }
+    items.forEach(function (it, i) {
+      var cx = L + band * i + band / 2;
+      var h = it.value ? Math.max(2, ph * (it.value / 100 / max)) : 0;
+      var tip = it.tip + ': ' + fmt(it.value);
+      s += '<g class="col"' + (it.go ? ' data-pgo="' + it.go + '" role="button" tabindex="0" aria-label="' + esc('Abrir ' + tip) + '"' : '') + '><title>' + esc(tip) + '</title>';
+      if (h) s += '<rect class="' + (cls === 'd' ? 'bd' : 'br') + '" x="' + (cx - bw / 2).toFixed(1) + '" y="' + (T + ph - h).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="3"/>';
+      if (h && band >= 44) s += '<text class="sel" x="' + cx.toFixed(1) + '" y="' + (T + ph - h - 5).toFixed(1) + '" text-anchor="middle">' + CMP.format(it.value / 100) + '</text>';
+      if (i % step === 0) s += '<text x="' + cx.toFixed(1) + '" y="' + (H - 9) + '" text-anchor="middle">' + esc(it.label) + '</text>';
+      s += '<rect class="hit" x="' + (L + band * i).toFixed(1) + '" y="0" width="' + band.toFixed(1) + '" height="' + H + '"/></g>';
+    });
+    return s + '</svg>';
+  }
+
+  function renderView() {
+    var per = state.view === 'per';
+    $('app').setAttribute('data-view', state.view);
+    ['monthnav', 'sum', 'formCard', 'chartCard', 'listCard', 'brkCard'].forEach(function (id) { $(id).hidden = per; });
+    ['pctl', 'psum', 'pchart', 'pbrk', 'plist'].forEach(function (id) { $(id).hidden = !per; });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-view]'), function (b) {
+      if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', b.getAttribute('data-view') === state.view ? 'true' : 'false');
+    });
+  }
+
+  function renderPer() {
+    if (state.view !== 'per') return;
+    var tipo = state.ptipo, cls = tipo === 'despesa' ? 'd' : 'r';
+    var plural = tipo === 'despesa' ? 'despesas' : 'receitas';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ptipo]'), function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-ptipo') === tipo ? 'true' : 'false');
+    });
+    if (!state.pronto) return;
+
+    var lim = limitesMeses(), anos = {};
+    mesesDados().forEach(function (m) { anos[m.slice(0, 4)] = 1; });
+    anos[anoAtual()] = 1;
+    var yl = Object.keys(anos).sort().reverse();
+    var opts = [['ano:' + anoAtual(), 'Este ano (' + anoAtual() + ')'], ['12m', 'Últimos 12 meses']];
+    yl.forEach(function (y) { if (y !== anoAtual()) opts.push(['ano:' + y, 'Ano ' + y]); });
+    opts.push(['sempre', 'Desde sempre'], ['custom', 'De um mês a outro']);
+    setOpts($('pper'), opts, state.pper);
+    var custom = state.pper === 'custom';
+    $('pcustom').hidden = !custom;
+    if (custom) {
+      var mo = listaMeses(lim[0], lim[1]).map(function (m) { return [m, cap1(curtoMes(m)) + ' ' + m.slice(0, 4)]; });
+      setOpts($('pde'), mo, state.pde || lim[0]);
+      setOpts($('pate'), mo, state.pate || lim[1]);
+    }
+
+    var r = rangePer(), a = r[0], b = r[1];
+    var meses = listaMeses(a, b);
+    var itens = state.lanc.filter(function (l) { var m = mesDe(l.data); return l.tipo === tipo && m >= a && m <= b; });
+    var total = 0, porMes = {}, by = {};
+    itens.forEach(function (l) {
+      total += l.centavos;
+      var m = mesDe(l.data);
+      porMes[m] = (porMes[m] || 0) + l.centavos;
+      by[l.categoria] = (by[l.categoria] || 0) + l.centavos;
+    });
+
+    $('prange').textContent = (a === b ? labelMes(a) : labelMes(a) + ' a ' + labelMes(b)) + ' · ' + meses.length + (meses.length === 1 ? ' mês' : ' meses');
+    $('psum').innerHTML =
+      '<div class="' + (tipo === 'despesa' ? 'desp' : 'rec') + '"><div class="k">Total de ' + plural + '</div><div class="v num">' + fmt(total) + '</div></div>' +
+      '<div><div class="k">Média por mês</div><div class="v num">' + fmt(meses.length ? Math.round(total / meses.length) : 0) + '</div></div>' +
+      '<div class="saldo"><div class="k">Lançamentos</div><div class="v num">' + itens.length + '</div></div>';
+
+    /* gráfico */
+    var porAno = meses.length > 24, multiAno = a.slice(0, 4) !== b.slice(0, 4), gi;
+    if (porAno) {
+      var ya = {};
+      meses.forEach(function (m) { ya[m.slice(0, 4)] = (ya[m.slice(0, 4)] || 0) + (porMes[m] || 0); });
+      gi = Object.keys(ya).sort().map(function (y) { return { label: y, tip: y, value: ya[y] }; });
+    } else {
+      gi = meses.map(function (m) {
+        return { label: cap1(curtoMes(m)) + (multiAno ? ' ' + m.slice(2, 4) : ''), tip: labelMes(m), value: porMes[m] || 0, go: m };
+      });
+    }
+    $('pchartTitle').textContent = cap1(plural) + (porAno ? ' por ano' : ' por mês');
+    var box = $('pchartBox');
+    box.innerHTML = itens.length
+      ? barChart(gi, cls, Math.max(300, Math.round(box.clientWidth || 640)), multiAno && !porAno ? 46 : 28)
+      : '<p class="empty">Sem ' + plural + ' neste período.</p>';
+
+    /* categorias */
+    var rows = Object.keys(by).map(function (k) { return [k, by[k]]; }).sort(function (x, y) { return y[1] - x[1]; });
+    $('pbrkBox').innerHTML = !rows.length ? '<p class="empty">Sem ' + plural + ' neste período.</p>' :
+      '<ul class="brk">' + rows.map(function (rw) {
+        return '<li><div class="top"><span>' + esc(rw[0]) + '</span><span class="num"><b>' + fmt(rw[1]) + '</b><span class="pct">' + Math.round(rw[1] / total * 100) + '%</span></span></div>' +
+          '<div class="bar"><i class="' + cls + '" style="width:' + (rw[1] / rows[0][1] * 100).toFixed(1) + '%"></i></div></li>';
+      }).join('') + '</ul>';
+
+    /* lançamentos */
+    var ord = itens.slice().sort(function (x, y) { return y.data.localeCompare(x.data) || (y.criadoEm || 0) - (x.criadoEm || 0); });
+    var vis = state.pall ? ord : ord.slice(0, 20);
+    var h = !ord.length ? '<p class="empty">Nenhum lançamento neste período.</p>' :
+      '<ul style="list-style:none;margin:0;padding:0">' + vis.map(function (l) {
+        return '<li class="row prow"><span class="dot ' + cls + '"></span><div class="txt"><b>' + esc(l.categoria) + '</b>' +
+          '<span class="obs">' + esc(diaCurto(l.data, multiAno) + (l.obs ? ' · ' + l.obs : '')) + '</span></div>' +
+          '<div class="amt num ' + cls + '">' + (tipo === 'receita' ? '+' : MINUS) + fmt(l.centavos) + '</div></li>';
+      }).join('') + '</ul>';
+    if (ord.length > 20) h += '<div class="moreRow"><button type="button" class="secondary" data-pmore="1">' + (state.pall ? 'Mostrar menos' : 'Mostrar todos (' + ord.length + ')') + '</button></div>';
+    $('plistBox').innerHTML = h;
+  }
+
   function renderFoot() {
     $('foot').textContent = !state.pronto ? '' :
       'Seus lançamentos ficam salvos só neste aparelho. Use o backup abaixo para guardar uma cópia ou levar para outro aparelho.';
@@ -490,9 +719,9 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
     $('obs').placeholder = state.tipo === 'despesa' ? 'Ex.: mercado, gasolina, conta de luz' : 'Ex.: salário de outubro, reembolso do plano';
   }
 
-  function render() { renderHead(); renderSum(); renderChart(); renderList(); renderBrk(); renderFoot(); }
+  function render() { renderView(); renderHead(); renderSum(); renderChart(); renderList(); renderBrk(); renderFoot(); renderPer(); }
 
-  var rsz; window.addEventListener('resize', function () { clearTimeout(rsz); rsz = setTimeout(renderChart, 150); });
+  var rsz; window.addEventListener('resize', function () { clearTimeout(rsz); rsz = setTimeout(function () { renderChart(); renderPer(); }, 150); });
 
   /* ---------- armazenamento ---------- */
   var LS = 'livro-caixa-v1';
@@ -572,7 +801,7 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
   });
 
   document.addEventListener('keydown', function (e) {
-    if ((e.key === 'Enter' || e.key === ' ') && e.target.getAttribute && e.target.getAttribute('data-gomes')) {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.getAttribute && (e.target.getAttribute('data-gomes') || e.target.getAttribute('data-pgo'))) {
       e.preventDefault(); e.target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     }
   });
@@ -604,6 +833,24 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
       say(err && err.code === 'quota_exceeded' ? 'O limite de lançamentos foi atingido. Exclua algum para continuar.' : 'Não foi possível salvar. Tente de novo.', 'err');
     }).then(function () { $('btnAdd').disabled = !state.pronto; });
   });
+
+  /* ---------- abas e períodos ---------- */
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest ? e.target.closest('[data-view],[data-ptipo],[data-pgo],[data-pmore]') : null;
+    if (!t) return;
+    if (t.hasAttribute('data-view')) {
+      state.view = t.getAttribute('data-view'); state.pendente = null; render();
+    } else if (t.hasAttribute('data-ptipo')) {
+      state.ptipo = t.getAttribute('data-ptipo'); state.pall = false; renderPer();
+    } else if (t.hasAttribute('data-pgo')) {
+      state.mes = t.getAttribute('data-pgo'); state.view = 'mes'; state.pendente = null; render();
+    } else if (t.hasAttribute('data-pmore')) {
+      state.pall = !state.pall; renderPer();
+    }
+  });
+  $('pper').addEventListener('change', function () { state.pper = $('pper').value; state.pall = false; renderPer(); });
+  $('pde').addEventListener('change', function () { state.pde = $('pde').value; state.pall = false; renderPer(); });
+  $('pate').addEventListener('change', function () { state.pate = $('pate').value; state.pall = false; renderPer(); });
 
   /* ---------- backup ---------- */
   function bkSay(t, c) { var m = $('bkmsg'); m.textContent = t; m.className = c || ''; }

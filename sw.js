@@ -1,5 +1,5 @@
 // Service worker do Livro-caixa: deixa o app abrir sem internet.
-const CACHE = 'livro-caixa-v1';
+const CACHE = 'livro-caixa-v2';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
