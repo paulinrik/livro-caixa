@@ -10,6 +10,13 @@ Endereço: `https://paulinrik.github.io/livro-caixa/`
 - **Android (Chrome):** abra o endereço, toque nos três pontinhos e em **Instalar app** (ou **Adicionar à tela inicial**).
 - **iPhone (Safari):** abra o endereço, toque em **Compartilhar** e em **Adicionar à Tela de Início**.
 
+## Importar extrato
+
+Na aba **Importar**, escolha o extrato do banco (OFX ou CSV). O app lê o dia e o valor, deixa de fora o que
+você já lançou e mostra um lançamento por vez: toque na categoria e ele passa para o próximo.
+No fim, uma tela de revisão deixa confirmar, alterar ou apagar antes de lançar.
+Importar o mesmo arquivo de novo não duplica nada.
+
 ## Backup
 
 Em **Backup**, no fim da página, exporte um arquivo `.json` de tempos em tempos.
