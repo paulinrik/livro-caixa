@@ -548,7 +548,7 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
     if (!state.pronto) { el.innerHTML = '<p class="empty">Carregando seus lançamentos…</p>'; return; }
     if (state.erro) { el.innerHTML = '<p class="empty">' + esc(state.erro) + '</p>'; return; }
     var items = state.lanc.filter(function (l) { return mesDe(l.data) === state.mes; })
-      .sort(function (a, b) { return b.data.localeCompare(a.data) || (b.criadoEm || 0) - (a.criadoEm || 0); });
+      .sort(function (a, b) { return b.data.localeCompare(a.data) || (b.hora || '').localeCompare(a.hora || '') || (b.criadoEm || 0) - (a.criadoEm || 0); });
     if (!items.length) {
       el.innerHTML = '<p class="empty">Nenhum lançamento neste mês. Use o formulário para registrar a primeira receita ou despesa.</p>';
       return;
@@ -562,7 +562,7 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
       return '<div class="dia"><h3>' + esc(labelDia(g.data)) + '</h3><ul>' + g.items.map(function (l) {
         var r = l.tipo === 'receita';
         var h = '<li class="row"><span class="dot ' + (r ? 'r' : 'd') + '"></span>' +
-          '<div class="txt"><b>' + esc(l.categoria) + '</b>' + (l.obs ? '<span class="obs">' + esc(l.obs) + '</span>' : '') + '</div>' +
+          '<div class="txt"><b>' + esc(l.categoria) + '</b>' + ((l.hora || l.obs) ? '<span class="obs">' + esc((l.hora || '') + (l.hora && l.obs ? ' · ' : '') + (l.obs || '')) + '</span>' : '') + '</div>' +
           '<div class="amt num ' + (r ? 'r' : 'd') + '">' + (r ? '+' : MINUS) + fmt(l.centavos) + '</div>' +
           '<button type="button" class="ghost" data-del="' + esc(l.id) + '" aria-label="Excluir lançamento de ' + esc(l.categoria) + '">Excluir</button>';
         if (state.pendente === l.id) {
@@ -757,7 +757,7 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
     var h = !ord.length ? '<p class="empty">Nenhum lançamento neste período.</p>' :
       '<ul style="list-style:none;margin:0;padding:0">' + vis.map(function (l) {
         return '<li class="row prow"><span class="dot ' + cls + '"></span><div class="txt"><b>' + esc(l.categoria) + '</b>' +
-          '<span class="obs">' + esc(diaCurto(l.data, multiAno) + (l.obs ? ' · ' + l.obs : '')) + '</span></div>' +
+          '<span class="obs">' + esc(diaCurto(l.data, multiAno) + (l.hora ? ' · ' + l.hora : '') + (l.obs ? ' · ' + l.obs : '')) + '</span></div>' +
           '<div class="amt num ' + cls + '">' + (tipo === 'receita' ? '+' : MINUS) + fmt(l.centavos) + '</div></li>';
       }).join('') + '</ul>';
     if (ord.length > 20) h += '<div class="moreRow"><button type="button" class="secondary" data-pmore="1">' + (state.pall ? 'Mostrar menos' : 'Mostrar todos (' + ord.length + ')') + '</button></div>';
@@ -1219,7 +1219,7 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
     state.lanc.forEach(function (l) { if (l.ext) extSet[l.ext] = 1; });
     imp.items.forEach(function (it, i) {
       if (it.status !== 'ok' || extSet[it.key]) return;
-      recs.push({ tipo: it.tipo, centavos: it.cents, categoria: it.categoria, data: it.data, obs: it.obs || '', criadoEm: Date.now() + i, ext: it.key, banco: it.banco || '' });
+      recs.push({ tipo: it.tipo, centavos: it.cents, categoria: it.categoria, data: it.data, obs: it.obs || '', criadoEm: Date.now() + i, ext: it.key, banco: it.banco || '', hora: it.hora || '' });
       n++; if (it.tipo === 'despesa') vd += it.cents; else vr += it.cents;
       if (it.data > ultimo) ultimo = it.data;
     });
