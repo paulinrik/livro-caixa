@@ -6,13 +6,13 @@
 <meta name="theme-color" content="#1D3F63">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Livro-caixa">
+<meta name="apple-mobile-web-app-title" content="Caixa">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="description" content="Marcador de receitas e despesas com categorias, meses separados e gráfico comparativo.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<title>Livro-caixa</title>
+<title>Caixa</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap">
@@ -259,7 +259,11 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
 .tri-amt { font-family: var(--font-display); font-weight: 700; font-size: 28px; }
 .tri-amt.d { color: var(--desp); }
 .tri-amt.r { color: var(--rec); }
-.tri-bank { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.tri-bank { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; display: grid; gap: 4px; justify-items: start; }
+.tri-what { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.optag { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--hl); font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--ink); }
+.who { font-size: 16px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.xtra { font-size: 12px; color: var(--muted); }
 .tri-sim { padding: 8px 10px; border-radius: 10px; background: var(--hl); font-size: 13px; overflow-wrap: anywhere; }
 .linkbtn { border: 0; background: transparent; color: var(--accent); font-weight: 600; cursor: pointer; padding: 2px 0; font-size: 13px; text-decoration: underline; }
 .iobsw input { width: 100%; height: 46px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); padding: 0 12px; }
@@ -293,7 +297,7 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
 <body>
 <div class="app" id="app" data-screen="mes">
   <header class="head">
-    <h1>Livro-caixa</h1>
+    <h1>Caixa</h1>
     <div class="monthnav" id="monthnav" role="group" aria-label="Mês exibido">
       <button type="button" class="iconbtn" data-nav="-1" aria-label="Mês anterior">&#8249;</button>
       <div class="label" id="mesLabel" aria-live="polite"></div>
@@ -838,7 +842,7 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
       if (!data || isNaN(cents) || cents === 0) continue;
       var memo = unent(tagVal(b, 'MEMO')), name = unent(tagVal(b, 'NAME'));
       var desc = memo && name && normDesc(memo) !== normDesc(name) ? name + ' · ' + memo : (memo || name);
-      rows.push({ data: data, cents: cents, banco: desc, fitid: tagVal(b, 'FITID') || null });
+      rows.push({ data: data, hora: '', cents: cents, banco: desc, tipoOp: '', origem: desc, extra: '', fitid: tagVal(b, 'FITID') || null });
     }
     return rows;
   }
@@ -871,12 +875,14 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
       var hasV = cells.some(function (c) { return /(valor|amount|quantia|debito|credito|entrada|saida)/.test(c) && !/saldo/.test(c); });
       if (hasD && hasV) hi = i;
     }
-    var iDate = -1, iVal = -1, iDeb = -1, iCre = -1, iDesc = [], start = 0;
+    var iDate = -1, iVal = -1, iDeb = -1, iCre = -1, iDesc = [], iTipo = -1, iHora = -1, iExtra = [], start = 0;
     if (hi >= 0) {
       start = hi + 1;
       tab[hi].map(normDesc).forEach(function (c, idx) {
         if (/^(data|date|dt)\b/.test(c)) { if (iDate < 0 && !/(saldo|venc|contab|balan)/.test(c)) iDate = idx; }
         else if (/saldo/.test(c)) { /* ignora */ }
+        else if (iHora < 0 && /^(hora|horario|time)\b/.test(c)) iHora = idx;
+        else if (iTipo < 0 && /^(tipo|operacao|transacao|natureza|movimentacao)\b/.test(c)) iTipo = idx;
         else if (iVal < 0 && /^(valor|amount|quantia|value)\b/.test(c)) iVal = idx;
         else if (iDeb < 0 && /(debito|saida|debit)/.test(c)) iDeb = idx;
         else if (iCre < 0 && /(credito|entrada|credit)/.test(c)) iCre = idx;
@@ -895,14 +901,19 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
       for (k = 0; k < nc && iVal < 0; k++) {
         if (k !== iDate && ratio(k, function (v) { return !isNaN(parseNum(v, false)) && /[.,]\d{1,2}\s*$/.test(v); }) >= 0.6) iVal = k;
       }
-      var best = -1, bl = 0;
+      var isHora = function (v) { return /^\d{1,2}:\d{2}(:\d{2})?$/.test(v); };
+      for (k = 0; k < nc && iHora < 0; k++) if (k !== iDate && k !== iVal && ratio(k, isHora) >= 0.6) iHora = k;
+      var txt = [];
       for (k = 0; k < nc; k++) {
-        if (k === iDate || k === iVal) continue;
-        var tl = 0, tn = 0;
-        sample.forEach(function (r) { var v = String(r[k] == null ? '' : r[k]).trim(); if (v) { tl += v.length; tn++; } });
-        if (tn && tl / tn > bl) { bl = tl / tn; best = k; }
+        if (k === iDate || k === iVal || k === iHora) continue;
+        var any = false;
+        sample.forEach(function (r) { if (String(r[k] == null ? '' : r[k]).trim()) any = true; });
+        if (!any) continue;
+        if (ratio(k, function (v) { return !isNaN(parseNum(v, false)); }) >= 0.5) continue;
+        txt.push(k);
       }
-      if (best >= 0) iDesc = [best];
+      if (txt.length >= 2) { iTipo = txt[0]; iDesc = [txt[1]]; iExtra = txt.slice(2); }
+      else if (txt.length === 1) iDesc = [txt[0]];
     }
     if (iDate < 0 || (iVal < 0 && iDeb < 0 && iCre < 0)) return [];
     var out = [];
@@ -916,11 +927,16 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
         cents = (isNaN(cr) && isNaN(db)) ? NaN : (isNaN(cr) ? 0 : Math.abs(cr)) - (isNaN(db) ? 0 : Math.abs(db));
       }
       if (isNaN(cents) || cents === 0) continue;
+      var cel = function (col) { return String(r[col] == null ? '' : r[col]).trim(); };
       var parts = [];
-      iDesc.forEach(function (col) { var v = String(r[col] == null ? '' : r[col]).trim(); if (v && parts.indexOf(v) < 0) parts.push(v); });
-      var desc = parts.join(' · ');
+      iDesc.forEach(function (col) { var v = cel(col); if (v && parts.indexOf(v) < 0) parts.push(v); });
+      var origem = parts.join(' · ');
+      var tipoOp = iTipo >= 0 ? cel(iTipo) : '';
+      var extra = iExtra.map(cel).filter(function (v, q, a) { return v && a.indexOf(v) === q; }).join(' · ');
+      var hm = iHora >= 0 ? cel(iHora).match(/^\d{1,2}:\d{2}/) : null;
+      var desc = [tipoOp, origem, extra].filter(Boolean).join(' · ');
       if (/^saldo\b|saldo (anterior|do dia|final|inicial|disponivel)/.test(normDesc(desc))) continue;
-      out.push({ data: data, cents: cents, banco: desc, fitid: null });
+      out.push({ data: data, hora: hm ? hm[0] : '', cents: cents, banco: desc, tipoOp: tipoOp, origem: origem, extra: extra, fitid: null });
     }
     return out;
   }
@@ -938,7 +954,7 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
     var rows = imp.raw.map(function (r) {
       var base = r.fitid ? 'f:' + r.fitid : 'h:' + r.data + '|' + r.cents + '|' + normDesc(r.banco);
       seen[base] = (seen[base] || 0) + 1;
-      return { data: r.data, cents: r.cents, banco: r.banco || '', key: base + (seen[base] > 1 ? '#' + seen[base] : '') };
+      return { data: r.data, hora: r.hora || '', cents: r.cents, banco: r.banco || '', tipoOp: r.tipoOp || '', origem: r.origem || '', extra: r.extra || '', key: base + (seen[base] > 1 ? '#' + seen[base] : '') };
     });
     var pool = state.lanc.map(function (l) { return { l: l, used: false }; });
     var extSet = {};
@@ -964,7 +980,7 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
       }
     });
     meta.forEach(function (x) {
-      if (x.skip) { skipped.push({ data: x.r.data, cents: x.cents, tipo: x.tipo, banco: x.r.banco, motivo: x.skip }); return; }
+      if (x.skip) { skipped.push({ data: x.r.data, cents: x.cents, tipo: x.tipo, banco: x.r.banco, tipoOp: x.r.tipoOp, origem: x.r.origem, extra: x.r.extra, motivo: x.skip }); return; }
       var sim = null, i;
       for (i = 0; i < pool.length && !sim; i++) {
         var p = pool[i];
@@ -972,9 +988,9 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
           sim = { data: p.l.data, categoria: p.l.categoria, obs: p.l.obs || '' };
         }
       }
-      items.push({ key: x.r.key, data: x.r.data, cents: x.cents, banco: x.r.banco, tipo: x.tipo, categoria: null, obs: '', status: 'pend', similar: sim });
+      items.push({ key: x.r.key, data: x.r.data, hora: x.r.hora, cents: x.cents, banco: x.r.banco, tipoOp: x.r.tipoOp, origem: x.r.origem, extra: x.r.extra, tipo: x.tipo, categoria: null, obs: '', status: 'pend', similar: sim });
     });
-    items.sort(function (a, b) { return a.data.localeCompare(b.data); });
+    items.sort(function (a, b) { return a.data.localeCompare(b.data) || (a.hora || '').localeCompare(b.hora || ''); });
     imp.items = items; imp.skipped = skipped; imp.idx = 0; imp.edit = null; imp.novaCat = false;
   }
 
@@ -993,6 +1009,13 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
     imp.stage = 'revisao'; imp.edit = null;
   }
   function sinal(tipo) { return tipo === 'receita' ? '+' : MINUS; }
+  function bancoTxt(x) { return [x.tipoOp, x.origem, x.extra].filter(Boolean).join(' · ') || x.banco || ''; }
+  function bancoHtml(x) {
+    if (!x.tipoOp && !x.origem && !x.extra) return x.banco ? '<span class="who">' + esc(x.banco) + '</span>' : '';
+    return (x.tipoOp ? '<span class="optag">' + esc(x.tipoOp) + '</span>' : '') +
+      (x.origem ? '<span class="who">' + esc(x.origem) + '</span>' : '') +
+      (x.extra ? '<span class="xtra">' + esc(x.extra) + '</span>' : '');
+  }
 
   /* telas */
   function impInicio() {
@@ -1015,7 +1038,7 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
     h += '<label class="chk"><input type="checkbox" id="iinvert"' + (imp.invert ? ' checked' : '') + '><span>Os valores positivos são gastos (comum em fatura de cartão)</span></label>';
     if (sk) {
       h += '<details class="impdet"><summary>Ver as ' + sk + ' que já estavam lançadas</summary><ul>' + imp.skipped.map(function (s) {
-        return '<li>' + esc(diaCurto(s.data, true)) + ' · ' + sinal(s.tipo) + fmt(s.cents) + (s.banco ? ' · ' + esc(s.banco) : '') + ' <span>(' + esc(s.motivo) + ')</span></li>';
+        return '<li>' + esc(diaCurto(s.data, true)) + ' · ' + sinal(s.tipo) + fmt(s.cents) + (bancoTxt(s) ? ' · ' + esc(bancoTxt(s)) : '') + ' <span>(' + esc(s.motivo) + ')</span></li>';
       }).join('') + '</ul></details>';
     }
     h += '<div class="impbtns">' + (imp.items.length
@@ -1041,9 +1064,9 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
       '<button type="button" data-act="tipo" data-itipo="despesa" aria-pressed="' + (it.tipo === 'despesa') + '">Despesa</button>' +
       '<button type="button" data-act="tipo" data-itipo="receita" aria-pressed="' + (it.tipo === 'receita') + '">Receita</button></div>';
     h += '<div class="tri-info"><div class="tri-line"><span class="tri-n">' + (imp.idx + 1) + ' de ' + total + (feitos ? ' · ' + feitos + ' feitos' : '') + '</span>' +
-      '<span class="tri-date">' + esc(labelDia(it.data)) + '</span></div>' +
+      '<span class="tri-date">' + esc(labelDia(it.data) + (it.hora ? ' · ' + it.hora : '')) + '</span></div>' +
       '<div class="tri-amt num ' + cls + '">' + sinal(it.tipo) + fmt(it.cents) + '</div>' +
-      (it.banco ? '<div class="tri-bank">No extrato: ' + esc(it.banco) + ' <button type="button" class="linkbtn" data-act="usebanco">Usar como descrição</button></div>' : '') +
+      (bancoTxt(it) ? '<div class="tri-bank"><div class="tri-what">' + bancoHtml(it) + '</div><button type="button" class="linkbtn" data-act="usebanco">' + (it.origem ? 'Usar o nome na observação' : 'Usar como observação') + '</button></div>' : '') +
       (it.similar ? '<div class="tri-sim">Parece com um lançamento seu de ' + esc(diaCurto(it.similar.data, true)) + ': ' + esc(it.similar.categoria) + (it.similar.obs ? ' (' + esc(it.similar.obs) + ')' : '') +
         '. <button type="button" class="linkbtn" data-act="same">É o mesmo, ignorar</button></div>' : '') +
       '</div>';
@@ -1085,8 +1108,8 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
     oks.sort(function (a, b) { return imp.items[b].data.localeCompare(imp.items[a].data); });
     h += oks.length ? '<ul style="list-style:none;margin:12px 0 0;padding:0">' + oks.map(function (i) {
       var it = imp.items[i], cls = it.tipo === 'despesa' ? 'd' : 'r';
-      var sub = diaCurto(it.data, true) + (it.obs ? ' · ' + it.obs : (it.banco ? ' · ' + it.banco : ''));
-      return '<li class="irow"><span class="dot ' + cls + '"></span><div class="txt"><b>' + esc(it.categoria) + '</b><span class="obs">' + esc(sub) + '</span></div>' +
+      var sub = diaCurto(it.data, true) + (it.hora ? ' · ' + it.hora : '') + (it.obs ? ' · ' + it.obs : '');
+      return '<li class="irow"><span class="dot ' + cls + '"></span><div class="txt"><b>' + esc(it.categoria) + '</b><span class="obs">' + esc(sub) + '</span>' + (bancoTxt(it) ? '<span class="obs">' + esc(bancoTxt(it)) + '</span>' : '') + '</div>' +
         '<div class="amt num ' + cls + '">' + sinal(it.tipo) + fmt(it.cents) + '</div>' +
         '<div class="iact"><button type="button" class="ghost" data-act="edit" data-i="' + i + '">Alterar</button><button type="button" class="ghost" data-act="del" data-i="' + i + '">Apagar</button></div>' +
         (imp.edit === i && imp.draft ? editorHtml(imp) : '') + '</li>';
@@ -1094,7 +1117,7 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
     if (ign.length) {
       h += '<details class="impdet"><summary>Apagados ou ignorados (' + ign.length + ')</summary><ul style="list-style:none;padding:0">' + ign.map(function (i) {
         var it = imp.items[i];
-        return '<li class="irow"><span class="dot ' + (it.tipo === 'despesa' ? 'd' : 'r') + '"></span><div class="txt"><b>' + esc(diaCurto(it.data, true)) + '</b><span class="obs">' + esc(it.banco || '') + '</span></div>' +
+        return '<li class="irow"><span class="dot ' + (it.tipo === 'despesa' ? 'd' : 'r') + '"></span><div class="txt"><b>' + esc(diaCurto(it.data, true)) + '</b><span class="obs">' + esc(bancoTxt(it)) + '</span></div>' +
           '<div class="amt num">' + sinal(it.tipo) + fmt(it.cents) + '</div>' +
           '<div class="iact"><button type="button" class="ghost" data-act="reinc" data-i="' + i + '">Reincluir</button></div></li>';
       }).join('') + '</ul></details>';
@@ -1138,7 +1161,7 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
     if (act === 'start') { imp.stage = 'triagem'; impGo(0); impNext_firstPending(); }
     else if (act === 'discard' || act === 'again') { state.imp = { stage: 'inicio' }; state.impErr = ''; }
     else if (act === 'tipo') { var ob = $('iobs'); state.obsDraft = ob ? ob.value : state.obsDraft; it.tipo = t.getAttribute('data-itipo'); imp.novaCat = false; }
-    else if (act === 'usebanco') { var o2 = $('iobs'); if (o2) { o2.value = it.banco; state.obsDraft = it.banco; o2.focus(); } return; }
+    else if (act === 'usebanco') { var o2 = $('iobs'); var txt = it.origem || it.banco; if (o2) { o2.value = txt; state.obsDraft = txt; o2.focus(); } return; }
     else if (act === 'cat') {
       var o3 = $('iobs');
       it.categoria = t.getAttribute('data-c'); it.obs = (o3 ? o3.value : state.obsDraft || '').trim(); it.status = 'ok';
@@ -1417,7 +1440,7 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
       var blob = new Blob([data], { type: 'application/json' });
       var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'livro-caixa-' + hoje() + '.json';
+      a.download = 'caixa-' + hoje() + '.json';
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
       bkSay('Backup gerado com ' + state.lanc.length + ' lançamentos.', 'ok');

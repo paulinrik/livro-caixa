@@ -1,6 +1,6 @@
 {
-  "name": "Livro-caixa",
-  "short_name": "Livro-caixa",
+  "name": "Caixa",
+  "short_name": "Caixa",
   "description": "Marcador de receitas e despesas com categorias, meses separados e gráfico comparativo.",
   "lang": "pt-BR",
   "start_url": "./",
