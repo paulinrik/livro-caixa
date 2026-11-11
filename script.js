@@ -939,7 +939,8 @@
       '<button type="button" class="primary" data-act="bank" data-bank="bradesco">Bradesco</button>' +
       '<button type="button" class="primary" data-act="bank" data-bank="picpay">PicPay</button>' +
       '<button type="button" class="secondary" data-act="bank" data-bank="automatico">Outro / detectar automaticamente</button></div>' +
-      '<p class="hint">Por enquanto, os leitores especializados disponíveis são Bradesco e PicPay. A opção automática mantém compatibilidade com outros arquivos.</p>';
+      '<p class="hint">Por enquanto, os leitores especializados disponíveis são Bradesco e PicPay. A opção automática mantém compatibilidade com outros arquivos.</p>' +
+      (state.impErr ? '<p class="warn" role="alert">' + esc(state.impErr) + '</p>' : '');
   }
 
   function impResumo(imp) {
