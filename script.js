@@ -583,84 +583,74 @@
     return rows;
   }
 
-  function parseCSV(text) {
+  function parseCSV(text, banco) {
     var head = text.split(/\r?\n/).slice(0, 25).join('\n');
     var cs = (head.match(/;/g) || []).length, cc = (head.match(/,/g) || []).length, ct = (head.match(/\t/g) || []).length;
     var d = ct > cs && ct > cc ? '\t' : (cs >= cc && cs > 0 ? ';' : ',');
     var tab = splitCSV(text, d).filter(function (r) { return r.some(function (c) { return String(c).trim() !== ''; }); });
     var hi = -1, i, k;
-    for (i = 0; i < Math.min(tab.length, 40) && hi < 0; i++) {
+    function isDateHead(c) { return /^(data|date|dt|data lancamento|data transacao|data da transacao)\b/.test(c); }
+    function isValueHead(c) { return /(valor|amount|quantia|debito|credito|entrada|saida|valor r\$|valor da transacao)/.test(c) && !/saldo/.test(c); }
+    for (i = 0; i < Math.min(tab.length, 50) && hi < 0; i++) {
       var cells = tab[i].map(normDesc);
-      var hasD = cells.some(function (c) { return /^(data|date|dt)\b/.test(c); });
-      var hasV = cells.some(function (c) { return /(valor|amount|quantia|debito|credito|entrada|saida)/.test(c) && !/saldo/.test(c); });
-      if (hasD && hasV) hi = i;
+      if (cells.some(isDateHead) && cells.some(isValueHead)) hi = i;
     }
-    var iDate = -1, iVal = -1, iDeb = -1, iCre = -1, iDesc = [], iTipo = -1, iHora = -1, iExtra = [], start = 0;
+    var iDate=-1, iVal=-1, iDeb=-1, iCre=-1, iDesc=[], iTipo=-1, iHora=-1, iExtra=[], start=0;
     if (hi >= 0) {
-      start = hi + 1;
-      tab[hi].map(normDesc).forEach(function (c, idx) {
-        if (/^(data|date|dt)\b/.test(c)) { if (iDate < 0 && !/(saldo|venc|contab|balan)/.test(c)) iDate = idx; }
-        else if (/saldo/.test(c)) { /* ignora */ }
-        else if (iHora < 0 && /^(hora|horario|time)\b/.test(c)) iHora = idx;
-        else if (iTipo < 0 && /^(tipo|operacao|transacao|natureza|movimentacao)\b/.test(c)) iTipo = idx;
-        else if (iVal < 0 && /^(valor|amount|quantia|value)\b/.test(c)) iVal = idx;
-        else if (iDeb < 0 && /(debito|saida|debit)/.test(c)) iDeb = idx;
-        else if (iCre < 0 && /(credito|entrada|credit)/.test(c)) iCre = idx;
-        else if (/(descri|historico|memo|title|titulo|estabelecimento|detalhe|lancamento|favorecido|nome|beneficiario)/.test(c) && !/^(identificador|id)\b/.test(c)) iDesc.push(idx);
+      start=hi+1;
+      tab[hi].map(normDesc).forEach(function(c,idx) {
+        if (isDateHead(c)) { if(iDate<0&&!/(saldo|venc|contab|balan)/.test(c)) iDate=idx; }
+        else if (/saldo/.test(c)) { /* saldo não é transação */ }
+        else if (iHora<0 && /^(hora|horario|time)$/.test(c)) iHora=idx;
+        else if (iTipo<0 && /^(tipo|tipo de transacao|operacao|transacao|natureza|movimentacao|historico da transacao)$/.test(c)) iTipo=idx;
+        else if (iVal<0 && /^(valor|amount|quantia|value|valor r\$|valor da transacao)$/.test(c)) iVal=idx;
+        else if (iDeb<0 && /(debito|saida|debit)/.test(c)) iDeb=idx;
+        else if (iCre<0 && /(credito|entrada|credit)/.test(c)) iCre=idx;
+        else if (/(origem|destino|origem destino|favorecido|beneficiario|beneficiário|contraparte|estabelecimento|descricao|descri|historico|memo|title|titulo|nome|merchant)/.test(c) && !/^(identificador|id)$/.test(c)) iDesc.push(idx);
+        else if (/(forma de pagamento|meio de pagamento|payment method|cartao|conta de origem)/.test(c)) iExtra.push(idx);
       });
     } else {
-      var sample = tab.slice(0, 30);
-      var nc = 0;
-      sample.forEach(function (r) { if (r.length > nc) nc = r.length; });
-      var ratio = function (col, fn) {
-        var ok = 0, tot = 0;
-        sample.forEach(function (r) { var v = String(r[col] == null ? '' : r[col]).trim(); if (v) { tot++; if (fn(v)) ok++; } });
-        return tot ? ok / tot : 0;
-      };
-      for (k = 0; k < nc && iDate < 0; k++) if (ratio(k, function (v) { return !!parseData(v, false); }) >= 0.6) iDate = k;
-      for (k = 0; k < nc && iVal < 0; k++) {
-        if (k !== iDate && ratio(k, function (v) { return !isNaN(parseNum(v, false)) && /[.,]\d{1,2}\s*$/.test(v); }) >= 0.6) iVal = k;
-      }
-      var isHora = function (v) { return /^\d{1,2}:\d{2}(:\d{2})?$/.test(v); };
-      for (k = 0; k < nc && iHora < 0; k++) if (k !== iDate && k !== iVal && ratio(k, isHora) >= 0.6) iHora = k;
-      var txt = [];
-      for (k = 0; k < nc; k++) {
-        if (k === iDate || k === iVal || k === iHora) continue;
-        var any = false;
-        sample.forEach(function (r) { if (String(r[k] == null ? '' : r[k]).trim()) any = true; });
-        if (!any) continue;
-        if (ratio(k, function (v) { return !isNaN(parseNum(v, false)); }) >= 0.5) continue;
+      var sample=tab.slice(0,30), nc=0;
+      sample.forEach(function(r){if(r.length>nc)nc=r.length;});
+      var ratio=function(col,fn){var ok=0,tot=0;sample.forEach(function(r){var v=String(r[col]==null?'':r[col]).trim();if(v){tot++;if(fn(v))ok++;}});return tot?ok/tot:0;};
+      for(k=0;k<nc&&iDate<0;k++) if(ratio(k,function(v){return !!parseData(v,false);})>=0.6)iDate=k;
+      for(k=0;k<nc&&iVal<0;k++) if(k!==iDate&&ratio(k,function(v){return !isNaN(parseNum(v,false))&&/[.,]\d{1,2}\s*$/.test(v);})>=0.6)iVal=k;
+      var isHora=function(v){return /^\d{1,2}:\d{2}(:\d{2})?$/.test(v);};
+      for(k=0;k<nc&&iHora<0;k++)if(k!==iDate&&k!==iVal&&ratio(k,isHora)>=0.6)iHora=k;
+      var txt=[];
+      for(k=0;k<nc;k++){
+        if(k===iDate||k===iVal||k===iHora)continue;
+        var any=false;sample.forEach(function(r){if(String(r[k]==null?'':r[k]).trim())any=true;});
+        if(!any||ratio(k,function(v){return !isNaN(parseNum(v,false));})>=0.5)continue;
         txt.push(k);
       }
-      if (txt.length >= 2) { iTipo = txt[0]; iDesc = [txt[1]]; iExtra = txt.slice(2); }
-      else if (txt.length === 1) iDesc = [txt[0]];
+      if(txt.length>=2){iTipo=txt[0];iDesc=[txt[1]];iExtra=txt.slice(2);}
+      else if(txt.length===1)iDesc=[txt[0]];
     }
-    if (iDate < 0 || (iVal < 0 && iDeb < 0 && iCre < 0)) return [];
-    var out = [];
-    for (i = start; i < tab.length; i++) {
-      var r = tab[i], data = parseData(r[iDate], false);
-      if (!data) continue;
+    if(iDate<0||(iVal<0&&iDeb<0&&iCre<0))return [];
+    var out=[];
+    for(i=start;i<tab.length;i++){
+      var r=tab[i],data=parseData(r[iDate],false);
+      if(!data)continue;
       var cents;
-      if (iVal >= 0) cents = parseNum(r[iVal], false);
+      if(iVal>=0)cents=parseNum(r[iVal],false);
       else {
-        var cr = iCre >= 0 ? parseNum(r[iCre], false) : NaN, db = iDeb >= 0 ? parseNum(r[iDeb], false) : NaN;
-        cents = (isNaN(cr) && isNaN(db)) ? NaN : (isNaN(cr) ? 0 : Math.abs(cr)) - (isNaN(db) ? 0 : Math.abs(db));
+        var cr=iCre>=0?parseNum(r[iCre],false):NaN, db=iDeb>=0?parseNum(r[iDeb],false):NaN;
+        cents=(isNaN(cr)&&isNaN(db))?NaN:(isNaN(cr)?0:Math.abs(cr))-(isNaN(db)?0:Math.abs(db));
       }
-      if (isNaN(cents) || cents === 0) continue;
-      var cel = function (col) { return String(r[col] == null ? '' : r[col]).trim(); };
-      var parts = [];
-      iDesc.forEach(function (col) { var v = cel(col); if (v && parts.indexOf(v) < 0) parts.push(v); });
-      var origem = parts.join(' · ');
-      var tipoOp = iTipo >= 0 ? cel(iTipo) : '';
-      var extra = iExtra.map(cel).filter(function (v, q, a) { return v && a.indexOf(v) === q; }).join(' · ');
-      var hm = iHora >= 0 ? cel(iHora).match(/^\d{1,2}:\d{2}/) : null;
-      var desc = [tipoOp, origem, extra].filter(Boolean).join(' · ');
-      if (/^saldo\b|saldo (anterior|do dia|final|inicial|disponivel)/.test(normDesc(desc))) continue;
-      out.push({ data: data, hora: hm ? hm[0] : '', cents: cents, banco: desc, tipoOp: tipoOp, origem: origem, extra: extra, fitid: null });
+      if(isNaN(cents)||cents===0)continue;
+      var cel=function(col){return String(r[col]==null?'':r[col]).trim();};
+      var parts=[];
+      iDesc.forEach(function(col){var v=cel(col);if(v&&parts.indexOf(v)<0)parts.push(v);});
+      var origem=parts.join(' · '), tipoOp=iTipo>=0?cel(iTipo):'';
+      var extra=iExtra.map(cel).filter(function(v,q,a){return v&&a.indexOf(v)===q;}).join(' · ');
+      var hm=iHora>=0?cel(iHora).match(/^\d{1,2}:\d{2}/):null;
+      var desc=[tipoOp,origem,extra].filter(Boolean).join(' · ');
+      if(/^saldo\b|saldo (anterior|do dia|final|inicial|disponivel)/.test(normDesc(desc)))continue;
+      out.push({data:data,hora:hm?hm[0]:'',cents:cents,banco:desc,tipoOp:tipoOp,origem:origem,extra:extra,fitid:null});
     }
     return out;
   }
-
 
   /* ---------- PDF ---------- */
   var RE_VAL = /^[-−+]?\s*(R\$\s*)?\d{1,3}(\.\d{3})*,\d{2}\s*[-−]?\s*[CD]?$/i;
@@ -770,6 +760,56 @@
     return out;
   }
 
+  function parsePicPayPdf(paginas) {
+    var out=[], mesMap={janeiro:1,fevereiro:2,marco:3,abril:4,maio:5,junho:6,julho:7,agosto:8,setembro:9,outubro:10,novembro:11,dezembro:12};
+    paginas.map(pdfLinhas).forEach(function(linhas) {
+      var data=null, trans=[];
+      linhas.forEach(function(c) {
+        var txt=c.map(function(x){return x.str;}).join(' ').replace(/\s+/g,' ').trim();
+        var dm=txt.match(/(\d{1,2})\s+de\s+([a-zçãé]+)\s+(\d{4})/i);
+        if(dm) {
+          var mm=mesMap[normDesc(dm[2]).replace(/ /g,'')];
+          if(mm)data=dm[3]+'-'+pad(mm)+'-'+pad(+dm[1]);
+        }
+        var tm=txt.match(/\b([01]?\d|2[0-3]):[0-5]\d\b/);
+        var vm=c.filter(function(x){return /[+−-]\s*R\$\s*\d/.test(x.str);});
+        var tipoCell=c.filter(function(x){return /^(pix recebido|pix enviado|compra realizada|dinheiro guardado|rendimento recebido)$/i.test(x.str.trim());})[0];
+        if(tm&&vm.length&&tipoCell) {
+          var val=vm[0].str.replace(/\s/g,'');
+          var cents=parseNum(val.replace(/[+−-]/g,''),false);
+          if(!isNaN(cents)&&cents>0) {
+            trans.push({y:c.y,data:data,hora:tm[0],tipoOp:tipoCell.str.trim(),cents:/[−-]/.test(val)?-cents:cents,own:c.filter(function(x){return x!==vm[0]&&x!==tipoCell&&!/\b\d{1,2}:\d{2}\b/.test(x.str);}).map(function(x){return x.str;}).join(' ').trim(),origem:[],extra:[]});
+          }
+        }
+      });
+      // O PicPay quebra nomes em linhas separadas na coluna Origem/Destino.
+      linhas.forEach(function(c) {
+        c.forEach(function(cell) {
+          if(cell.x<280||cell.x>470)return;
+          var v=cell.str.trim();
+          if(!v||/^(origem\s*\/\s*destino|forma de pagamento|com saldo)$/i.test(v)||/^saldo ao final/i.test(v))return;
+          var near=null,dist=1e9;
+          trans.forEach(function(t){var d=Math.abs(t.y-c.y);if(d<dist&&d<=27){near=t;dist=d;}});
+          if(near)near.origem.push({y:c.y,x:cell.x,txt:v});
+        });
+      });
+      trans.forEach(function(t) {
+        var pieces=t.origem.sort(function(a,b){return b.y-a.y;}).map(function(x){return x.txt;});
+        var origem=pieces.join(' ').replace(/\s+/g,' ').trim();
+        if(t.own) {
+          var ownParts=t.own.split(/\s{2,}/);
+          if(!origem)origem=t.own;
+        }
+        // Transferir dinheiro para o cofrinho é movimentação interna, não receita/despesa.
+        if(normDesc(t.tipoOp)==='dinheiro guardado')return;
+        var extra=t.own&&/com saldo/i.test(t.own)?'Com saldo':'';
+        if(!origem)origem=t.tipoOp==='Rendimento recebido'?'Rendimento de conta':'';
+        out.push({data:t.data,hora:t.hora,cents:t.cents,banco:[t.tipoOp,origem,extra].filter(Boolean).join(' · '),tipoOp:t.tipoOp,origem:origem,extra:extra,fitid:null});
+      });
+    });
+    return out;
+  }
+
   var pdfPronto = null;
   function pdfCarregar() {
     if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
@@ -784,7 +824,7 @@
     return pdfPronto;
   }
 
-  function lerPdf(buf) {
+  function lerPdf(buf, banco) {
     return pdfCarregar().then(function (lib) {
       var tarefa = lib.getDocument({ data: new Uint8Array(buf) });
       tarefa.onPassword = function (update, motivo) {
@@ -801,12 +841,12 @@
             });
           })(n);
         }
-        return seq.then(function () { return parsePdf(pags); });
+        return seq.then(function () { return banco === 'picpay' ? parsePicPayPdf(pags) : parsePdf(pags); });
       });
     });
   }
 
-  function parseExtrato(text) { return /<STMTTRN>/i.test(text) ? parseOFX(text) : parseCSV(text); }
+  function parseExtrato(text, banco) { return /<STMTTRN>/i.test(text) ? parseOFX(text) : parseCSV(text, banco); }
 
   function diasEntre(a, b) {
     var pa = a.split('-').map(Number), pb = b.split('-').map(Number);
@@ -892,10 +932,20 @@
       (state.impErr ? '<p class="warn" role="alert">' + esc(state.impErr) + '</p>' : '');
   }
 
+  function impBancoChooser() {
+    return '<h2>Qual é o banco deste extrato?</h2>' +
+      '<p class="hint" style="margin:6px 0 14px">Escolha o banco para usar o leitor correto. Assim evitamos testar formatos diferentes.</p>' +
+      '<div class="impbtns bank-choices">' +
+      '<button type="button" class="primary" data-act="bank" data-bank="bradesco">Bradesco</button>' +
+      '<button type="button" class="primary" data-act="bank" data-bank="picpay">PicPay</button>' +
+      '<button type="button" class="secondary" data-act="bank" data-bank="automatico">Outro / detectar automaticamente</button></div>' +
+      '<p class="hint">Por enquanto, os leitores especializados disponíveis são Bradesco e PicPay. A opção automática mantém compatibilidade com outros arquivos.</p>';
+  }
+
   function impResumo(imp) {
     var datas = imp.raw.map(function (r) { return r.data; }).sort();
     var sk = imp.skipped.length, n = imp.raw.length;
-    var h = '<h2>Extrato lido</h2><p class="hint" style="margin:6px 0 0">' + esc(imp.fileName || '') +
+    var h = '<h2>Extrato lido</h2><p class="hint" style="margin:6px 0 0">' + esc(imp.fileName || '') + ' · ' + esc(imp.banco === 'picpay' ? 'PicPay' : imp.banco === 'bradesco' ? 'Bradesco' : 'Leitura automática') +
       (datas.length ? ' · ' + esc(diaCurto(datas[0], true)) + ' a ' + esc(diaCurto(datas[datas.length - 1], true)) : '') + '</p>';
     h += '<ul class="impstats"><li><b>' + n + '</b> movimentações no arquivo</li>' +
       '<li><b>' + sk + '</b> já estavam lançadas e ficam de fora</li>' +
@@ -1004,7 +1054,7 @@
     if (state.view !== 'imp') return;
     var el = $('impBox'), imp = state.imp;
     if (!state.pronto) { el.innerHTML = '<p class="empty">Carregando…</p>'; return; }
-    el.innerHTML = imp.stage === 'resumo' ? impResumo(imp) :
+    el.innerHTML = imp.stage === 'banco' ? impBancoChooser() : imp.stage === 'resumo' ? impResumo(imp) :
       imp.stage === 'triagem' ? impTriagem(imp) :
       imp.stage === 'revisao' ? impRevisao(imp) :
       imp.stage === 'fim' ? impFim(imp) : impInicio();
@@ -1022,7 +1072,8 @@
 
   function impAct(act, t) {
     var imp = state.imp, it = imp.items ? imp.items[imp.idx] : null, i;
-    if (act === 'pick') { $('fileExt').click(); return; }
+    if (act === 'pick') { imp.stage = 'banco'; impRefresh(); return; }
+    if (act === 'bank') { state.imp.banco = t.getAttribute('data-bank'); $('fileExt').accept = '.pdf,.ofx,.csv,.txt'; $('fileExt').value = ''; $('fileExt').click(); return; }
     if (act === 'start') { imp.stage = 'triagem'; impGo(0); impNext_firstPending(); }
     else if (act === 'discard' || act === 'again') { state.imp = { stage: 'inicio' }; state.impErr = ''; }
     else if (act === 'tipo') { var ob = $('iobs'); state.obsDraft = ob ? ob.value : state.obsDraft; it.tipo = t.getAttribute('data-itipo'); imp.novaCat = false; }
@@ -1102,7 +1153,7 @@
       if (!raw.length) {
         state.impErr = msgVazio || 'Não consegui ler movimentações neste arquivo. Use o extrato em PDF, OFX ou CSV, com data e valor em cada linha.';
       } else {
-        var imp = { stage: 'resumo', fileName: file.name, raw: raw.slice(0, 3000), invert: !!state.impInvert };
+        var imp = { stage: 'resumo', fileName: file.name, banco: state.imp.banco || 'automatico', raw: raw.slice(0, 3000), invert: !!state.impInvert };
         computeImp(imp);
         state.imp = imp;
       }
@@ -1114,12 +1165,12 @@
       var ehPdf = String.fromCharCode.apply(null, u8).indexOf('%PDF') === 0;
       if (ehPdf) {
         state.impErr = 'Lendo o PDF…'; render();
-        lerPdf(rd.result).then(function (raw) { state.impErr = ''; pronto(raw, 'Não encontrei movimentações neste PDF. Se o banco oferece o extrato em OFX, use esse arquivo.'); })
+        lerPdf(rd.result, state.imp.banco || 'automatico').then(function (raw) { state.impErr = ''; pronto(raw, 'Não encontrei movimentações neste PDF. Se o banco oferece o extrato em OFX, use esse arquivo.'); })
           .catch(function () { pronto([], 'Não consegui abrir este PDF (senha incorreta, ou o leitor não carregou sem internet na primeira vez).'); });
         return;
       }
       var raw = [];
-      try { raw = parseExtrato(decodeBuf(rd.result)); } catch (e) { raw = []; }
+      try { raw = parseExtrato(decodeBuf(rd.result), state.imp.banco || 'automatico'); } catch (e) { raw = []; }
       pronto(raw);
     };
     rd.onerror = function () { state.impErr = 'Não foi possível abrir o arquivo.'; render(); };
