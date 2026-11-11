@@ -1,5 +1,5 @@
 // Service worker do Caixa: deixa o app abrir sem internet.
-const CACHE = 'caixa-v6';
+const CACHE = 'caixa-v7';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {

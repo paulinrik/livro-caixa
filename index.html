@@ -964,52 +964,43 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
     var linhas = [];
     ord.forEach(function (t) {
       var l = linhas[linhas.length - 1];
-      if (l && Math.abs(l.y - t.y) <= 3) l.itens.push(t); else linhas.push({ y: t.y, itens: [t] });
+      if (l && Math.abs(l.y - t.y) <= 2) l.itens.push(t); else linhas.push({ y: t.y, itens: [t] });
     });
-    return linhas.map(function (l) { return pdfCelulas(l.itens); }).filter(function (c) { return c.length; });
+    return linhas.map(function (l) { var c = pdfCelulas(l.itens); c.y = l.y; return c; }).filter(function (c) { return c.length; });
   }
 
-  /* paginas: lista de listas de itens {x, xe, y, str}. Devolve linhas no mesmo formato do CSV/OFX. */
+  /* paginas: lista de listas de itens {x, xe, y, str}. Devolve linhas no mesmo formato do CSV/OFX.
+     O texto de cada lançamento pode estar na mesma linha do valor, acima (tipo) ou abaixo (nome). */
   function parsePdf(paginas) {
-    var out = [], ano = null, data = null, col = null, ult = null, cont = 0;
+    var out = [], ano = null, data = null, col = null;
     var todo = paginas.map(pdfLinhas);
     todo.forEach(function (ls) { ls.forEach(function (c) {
-      var m = c.map(function (x) { return x.str; }).join(' ').match(/(?:per[ií]odo|de)\s*:?\s*\d{2}\/\d{2}\/(\d{4})/i) || c.map(function (x) { return x.str; }).join(' ').match(/\d{2}\/\d{2}\/(\d{4})/);
+      var t = c.map(function (x) { return x.str; }).join(' ');
+      var m = t.match(/(?:per[ií]odo|de)\s*:?\s*\d{2}\/\d{2}\/(\d{4})/i) || t.match(/\d{2}\/\d{2}\/(\d{4})/);
       if (!ano && m) ano = +m[1];
     }); });
     if (!ano) ano = new Date().getFullYear();
 
-    function fecha() {
-      if (!ult) return;
-      var tipoOp = ult.tipoOp, origem = ult.cont.join(' ').replace(/\s+\d{2}\/\d{2}(\/\d{2,4})?\s*$/, '').replace(/^(rem|des|remetente|destinat[aá]rio|favorecido)\s*:\s*/i, '').trim();
-      if (!origem) { origem = tipoOp; tipoOp = ''; }
-      out.push({ data: ult.data, hora: '', cents: ult.cents, banco: [tipoOp, origem].filter(Boolean).join(' · '), tipoOp: tipoOp, origem: origem, extra: '', fitid: null });
-      ult = null;
-    }
-
     todo.forEach(function (linhas) {
+      var txs = [], textos = [];
       linhas.forEach(function (c) {
         var txt = c.map(function (x) { return x.str; }).join(' ');
         var nt = normDesc(txt);
         if (/cr[eé]dito/i.test(txt) && /d[eé]bito/i.test(txt)) {
-          fecha();
           col = {};
           c.forEach(function (x) {
             if (/cr[eé]dito/i.test(x.str)) col.cred = x.xe;
             else if (/d[eé]bito/i.test(x.str)) col.deb = x.xe;
             else if (/saldo/i.test(x.str)) col.saldo = x.xe;
+            else if (/hist[oó]rico/i.test(x.str)) col.hist = x.x;
           });
           return;
         }
         var dm = RE_DATA.exec(c[0].str);
         var vals = c.filter(function (x) { return RE_VAL.test(x.str); });
-        if (dm) {
-          var d = parseData(dm[3] ? dm[0] : dm[0] + '/' + ano);
-          if (d) { fecha(); data = d; }
-        }
-        if (/^saldo\b|saldo (anterior|do dia|final|inicial|disponivel)|^total\b/.test(nt)) { fecha(); return; }
+        if (dm) { var d = parseData(dm[3] ? dm[0] : dm[0] + '/' + ano); if (d) data = d; }
+        if (/^saldo\b|saldo (anterior|do dia|final|inicial|disponivel)|^total\b/.test(nt)) return;
         if (vals.length && data) {
-          fecha();
           var alvo = null, sinal = 0;
           if (col && (col.cred || col.deb)) {
             vals.forEach(function (v) {
@@ -1032,15 +1023,30 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
           var cents = parseNum(alvo.str.replace(/[-−+]/g, '').replace(/\s*[CD]$/i, ''), false);
           if (isNaN(cents) || !cents) return;
           var desc = c.filter(function (x) { return x !== alvo && vals.indexOf(x) < 0 && !RE_DATA.test(x.str) && !/^\d+$/.test(x.str.replace(/\s/g, '')); });
-          ult = { data: data, cents: sinal * Math.abs(cents), tipoOp: desc.map(function (x) { return x.str; }).join(' '), cont: [], x: desc.length ? desc[0].x : 0 };
-          cont = 0;
+          txs.push({ y: c.y, data: data, cents: sinal * Math.abs(cents), own: desc.map(function (x) { return x.str; }).join(' '), x: desc.length ? desc[0].x : (col && col.hist != null ? col.hist : null), pre: [], post: [] });
           return;
         }
-        if (ult && !vals.length && cont < 3 && !dm && !RE_LIXO.test(txt) && Math.abs(c[0].x - ult.x) < 20) { ult.cont.push(txt); cont++; return; }
-        if (!vals.length) fecha();
+        if (!vals.length && !dm && !RE_LIXO.test(txt)) textos.push({ y: c.y, x: c[0].x, txt: txt });
+      });
+      textos.forEach(function (t) {
+        var best = null, bd = 13;
+        txs.forEach(function (x) {
+          var dy = Math.abs(t.y - x.y);
+          if (dy < bd && (x.x == null || Math.abs(t.x - x.x) < 25)) { bd = dy; best = x; }
+        });
+        if (!best) return;
+        (t.y > best.y ? best.pre : best.post).push(t);
+      });
+      txs.forEach(function (x) {
+        x.pre.sort(function (a, b) { return b.y - a.y; }); x.post.sort(function (a, b) { return b.y - a.y; });
+        var tipoOp = x.pre.map(function (t) { return t.txt; }).concat(x.own ? [x.own] : []).join(' ');
+        var origem = x.post.map(function (t) { return t.txt; }).join(' ')
+          .replace(/\s+\d{1,2}\/\d{2}(\/\d{2,4})?\s*$/, '')
+          .replace(/^(remetente|remet|rem|des|destinat[aá]rio|favorecido)\.?\s*:?\s*/i, '').trim();
+        if (!origem) { origem = tipoOp; tipoOp = ''; }
+        out.push({ data: x.data, hora: '', cents: x.cents, banco: [tipoOp, origem].filter(Boolean).join(' · '), tipoOp: tipoOp, origem: origem, extra: '', fitid: null });
       });
     });
-    fecha();
     return out;
   }
 
