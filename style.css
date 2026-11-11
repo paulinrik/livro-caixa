@@ -49,13 +49,13 @@ button, input, select { font: inherit; color: inherit; }
 
 .app {
   max-width: 1040px; margin: 0 auto; display: grid; gap: 16px;
-  grid-template-areas: "head" "tabs" "sum" "form" "chart" "list" "brk" "bk" "foot";
+  grid-template-areas: "head" "tabs" "sum" "form" "chart" "brk" "list" "bk" "foot";
 }
 .app > * { min-width: 0; }
 @media (min-width: 860px) {
   .app {
     grid-template-columns: 340px minmax(0, 1fr);
-    grid-template-areas: "head head" "tabs tabs" "sum sum" "form chart" "form list" "form brk" "form bk" "foot foot";
+    grid-template-areas: "head head" "tabs tabs" "sum sum" "form chart" "form brk" "form list" "form bk" "foot foot";
     align-items: start;
   }
   #formCard { position: sticky; top: 16px; align-self: start; }
@@ -138,7 +138,11 @@ h2 { font-size: 17px; line-height: 1.2; }
 /* gráfico */
 #chartCard { grid-area: chart; }
 .cardhead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.chart-tools { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
 .legend { display: flex; gap: 14px; font-size: 13px; color: var(--muted); }
+.chart-values-btn { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 8px; padding: 5px 9px; font-size: 12px; cursor: pointer; }
+.chart-values-btn:hover, .chart-values-btn[aria-pressed="true"] { background: var(--hl); color: var(--ink); }
+.chart-values-btn[aria-pressed="true"] { border-color: var(--accent); }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
 .legend .r i { background: var(--rec); }
 .legend .d i { background: var(--desp); }
@@ -147,6 +151,7 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
 .chart text { fill: var(--muted); font: 11px var(--font-body); }
 .chart text.sel { fill: var(--ink); font-weight: 600; }
 .chart .hl { fill: var(--hl); }
+.chart .value-label { fill: var(--ink); font-size: 10px; font-weight: 600; }
 .chart .br { fill: var(--rec); }
 .chart .bd { fill: var(--desp); }
 .chart .hit { fill: transparent; }
@@ -313,6 +318,8 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
   border-radius: 12px;
   padding: 13px 14px;
 }
+.stat-card.stat-total { grid-column: 1 / -1; padding: 19px 20px; background: var(--hl); border-color: var(--line); }
+.stat-card.stat-total .v { font-size: clamp(28px, 4vw, 36px); margin-top: 7px; }
 .stat-card .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
 .stat-card .v { margin-top: 5px; font-family: var(--font-display); font-weight: 700; font-size: 20px; overflow-wrap: anywhere; }
 .stat-card .sub { margin-top: 3px; color: var(--muted); font-size: 12px; }
