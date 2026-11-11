@@ -319,7 +319,6 @@
     ['monthnav', 'sum', 'formCard', 'chartCard', 'listCard', 'brkCard'].forEach(function (id) { $(id).hidden = !mes; });
     ['pctl', 'psum', 'pchart', 'pbrk', 'plist'].forEach(function (id) { $(id).hidden = !per; });
     $('statsCard').hidden = !stats;
-    $('statsCard').hidden = !stats;
     $('impCard').hidden = !imp;
     $('bkCard').hidden = imp;
     Array.prototype.forEach.call(document.querySelectorAll('[data-view]'), function (b) {
@@ -329,10 +328,11 @@
 
   function renderPer() {
     if (state.view !== 'per') return;
-    var tipo = state.ptipo, cls = tipo === 'despesa' ? 'd' : 'r';
+    var modoComparativo = state.ptipo === 'comparativo';
+    var tipo = modoComparativo ? 'despesa' : state.ptipo, cls = tipo === 'despesa' ? 'd' : 'r';
     var plural = tipo === 'despesa' ? 'despesas' : 'receitas';
     Array.prototype.forEach.call(document.querySelectorAll('[data-ptipo]'), function (b) {
-      b.setAttribute('aria-pressed', b.getAttribute('data-ptipo') === tipo ? 'true' : 'false');
+      b.setAttribute('aria-pressed', b.getAttribute('data-ptipo') === state.ptipo ? 'true' : 'false');
     });
     if (!state.pronto) return;
 
@@ -364,10 +364,23 @@
     });
 
     $('prange').textContent = (a === b ? labelMes(a) : labelMes(a) + ' a ' + labelMes(b)) + ' · ' + meses.length + (meses.length === 1 ? ' mês' : ' meses');
-    $('psum').innerHTML =
-      '<div class="' + (tipo === 'despesa' ? 'desp' : 'rec') + '"><div class="k">Total de ' + plural + '</div><div class="v num">' + fmt(total) + '</div></div>' +
-      '<div><div class="k">Média por mês</div><div class="v num">' + fmt(meses.length ? Math.round(total / meses.length) : 0) + '</div></div>' +
-      '<div class="saldo"><div class="k">Lançamentos</div><div class="v num">' + itens.length + '</div></div>';
+    if (modoComparativo) {
+      var recPeriodo = 0, despPeriodo = 0, qtdPeriodo = 0;
+      state.lanc.forEach(function(l) {
+        var m = mesDe(l.data);
+        if (m >= a && m <= b) { qtdPeriodo++; if (l.tipo === 'receita') recPeriodo += l.centavos; else despPeriodo += l.centavos; }
+      });
+      var saldoPeriodo = recPeriodo - despPeriodo;
+      $('psum').innerHTML =
+        '<div class="rec"><div class="k">Total de receitas</div><div class="v num">' + fmt(recPeriodo) + '</div></div>' +
+        '<div class="desp"><div class="k">Total de despesas</div><div class="v num">' + fmt(despPeriodo) + '</div></div>' +
+        '<div class="saldo"><div class="k">Saldo do período</div><div class="v num' + (saldoPeriodo < 0 ? ' neg' : '') + '">' + (saldoPeriodo < 0 ? MINUS : '') + fmt(Math.abs(saldoPeriodo)) + '</div></div>';
+    } else {
+      $('psum').innerHTML =
+        '<div class="' + (tipo === 'despesa' ? 'desp' : 'rec') + '"><div class="k">Total de ' + plural + '</div><div class="v num">' + fmt(total) + '</div></div>' +
+        '<div><div class="k">Média por mês</div><div class="v num">' + fmt(meses.length ? Math.round(total / meses.length) : 0) + '</div></div>' +
+        '<div class="saldo"><div class="k">Lançamentos</div><div class="v num">' + itens.length + '</div></div>';
+    }
 
     /* gráfico individual ou comparativo */
     var porAno = meses.length > 24, multiAno = a.slice(0, 4) !== b.slice(0, 4), gi;
