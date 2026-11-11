@@ -941,6 +941,145 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
     return out;
   }
 
+
+  /* ---------- PDF ---------- */
+  var RE_VAL = /^[-−+]?\s*(R\$\s*)?\d{1,3}(\.\d{3})*,\d{2}\s*[-−]?\s*[CD]?$/i;
+  var RE_DATA = /^(\d{2})\/(\d{2})(?:\/(\d{2,4}))?$/;
+  var RE_LIXO = /^(saldo|total|p[aá]gina|folha|extrato|ag[eê]ncia|conta|ouvidoria|sac\b|deficiente|data\b|hist[oó]rico|cr[eé]dito|d[eé]bito|docto|nome|cpf|per[ií]odo|bradesco|lan[cç]amentos?|[uú]ltimos)/i;
+
+  function pdfCelulas(itens) {
+    itens = itens.filter(function (t) { return t.str && t.str.trim(); }).sort(function (a, b) { return a.x - b.x; });
+    var cels = [];
+    itens.forEach(function (t) {
+      var u = cels[cels.length - 1];
+      if (u && t.x - u.xe < 4) { u.str += (t.x - u.xe > 1 ? ' ' : '') + t.str; u.xe = t.xe; }
+      else cels.push({ x: t.x, xe: t.xe, str: t.str });
+    });
+    cels.forEach(function (c) { c.str = c.str.replace(/\s+/g, ' ').trim(); });
+    return cels;
+  }
+
+  function pdfLinhas(itens) {
+    var ord = itens.slice().sort(function (a, b) { return b.y - a.y || a.x - b.x; });
+    var linhas = [];
+    ord.forEach(function (t) {
+      var l = linhas[linhas.length - 1];
+      if (l && Math.abs(l.y - t.y) <= 3) l.itens.push(t); else linhas.push({ y: t.y, itens: [t] });
+    });
+    return linhas.map(function (l) { return pdfCelulas(l.itens); }).filter(function (c) { return c.length; });
+  }
+
+  /* paginas: lista de listas de itens {x, xe, y, str}. Devolve linhas no mesmo formato do CSV/OFX. */
+  function parsePdf(paginas) {
+    var out = [], ano = null, data = null, col = null, ult = null, cont = 0;
+    var todo = paginas.map(pdfLinhas);
+    todo.forEach(function (ls) { ls.forEach(function (c) {
+      var m = c.map(function (x) { return x.str; }).join(' ').match(/(?:per[ií]odo|de)\s*:?\s*\d{2}\/\d{2}\/(\d{4})/i) || c.map(function (x) { return x.str; }).join(' ').match(/\d{2}\/\d{2}\/(\d{4})/);
+      if (!ano && m) ano = +m[1];
+    }); });
+    if (!ano) ano = new Date().getFullYear();
+
+    function fecha() {
+      if (!ult) return;
+      var tipoOp = ult.tipoOp, origem = ult.cont.join(' ').replace(/\s+\d{2}\/\d{2}(\/\d{2,4})?\s*$/, '').replace(/^(rem|des|remetente|destinat[aá]rio|favorecido)\s*:\s*/i, '').trim();
+      if (!origem) { origem = tipoOp; tipoOp = ''; }
+      out.push({ data: ult.data, hora: '', cents: ult.cents, banco: [tipoOp, origem].filter(Boolean).join(' · '), tipoOp: tipoOp, origem: origem, extra: '', fitid: null });
+      ult = null;
+    }
+
+    todo.forEach(function (linhas) {
+      linhas.forEach(function (c) {
+        var txt = c.map(function (x) { return x.str; }).join(' ');
+        var nt = normDesc(txt);
+        if (/cr[eé]dito/i.test(txt) && /d[eé]bito/i.test(txt)) {
+          fecha();
+          col = {};
+          c.forEach(function (x) {
+            if (/cr[eé]dito/i.test(x.str)) col.cred = x.xe;
+            else if (/d[eé]bito/i.test(x.str)) col.deb = x.xe;
+            else if (/saldo/i.test(x.str)) col.saldo = x.xe;
+          });
+          return;
+        }
+        var dm = RE_DATA.exec(c[0].str);
+        var vals = c.filter(function (x) { return RE_VAL.test(x.str); });
+        if (dm) {
+          var d = parseData(dm[3] ? dm[0] : dm[0] + '/' + ano);
+          if (d) { fecha(); data = d; }
+        }
+        if (/^saldo\b|saldo (anterior|do dia|final|inicial|disponivel)|^total\b/.test(nt)) { fecha(); return; }
+        if (vals.length && data) {
+          fecha();
+          var alvo = null, sinal = 0;
+          if (col && (col.cred || col.deb)) {
+            vals.forEach(function (v) {
+              if (alvo) return;
+              var best = null, bd = 1e9;
+              [['cred', 1], ['deb', -1], ['saldo', 0]].forEach(function (k) {
+                if (col[k[0]] == null) return;
+                var dd = Math.abs(v.xe - col[k[0]]);
+                if (dd < bd) { bd = dd; best = k; }
+              });
+              if (best && best[1] !== 0 && bd < 60) { alvo = v; sinal = best[1]; }
+            });
+          } else {
+            alvo = vals[0];
+            var sv = alvo.str;
+            sinal = /[-−]/.test(sv) || /D$/i.test(sv) ? -1 : (/^\+|C$/i.test(sv) ? 1 : 0);
+            if (!sinal) alvo = null;
+          }
+          if (!alvo) return;
+          var cents = parseNum(alvo.str.replace(/[-−+]/g, '').replace(/\s*[CD]$/i, ''), false);
+          if (isNaN(cents) || !cents) return;
+          var desc = c.filter(function (x) { return x !== alvo && vals.indexOf(x) < 0 && !RE_DATA.test(x.str) && !/^\d+$/.test(x.str.replace(/\s/g, '')); });
+          ult = { data: data, cents: sinal * Math.abs(cents), tipoOp: desc.map(function (x) { return x.str; }).join(' '), cont: [], x: desc.length ? desc[0].x : 0 };
+          cont = 0;
+          return;
+        }
+        if (ult && !vals.length && cont < 3 && !dm && !RE_LIXO.test(txt) && Math.abs(c[0].x - ult.x) < 20) { ult.cont.push(txt); cont++; return; }
+        if (!vals.length) fecha();
+      });
+    });
+    fecha();
+    return out;
+  }
+
+  var pdfPronto = null;
+  function pdfCarregar() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    if (pdfPronto) return pdfPronto;
+    pdfPronto = new Promise(function (ok, no) {
+      var sc = document.createElement('script');
+      sc.src = 'lib/pdf.min.js';
+      sc.onload = function () { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js'; ok(window.pdfjsLib); };
+      sc.onerror = function () { pdfPronto = null; no(new Error('sem leitor de PDF')); };
+      document.head.appendChild(sc);
+    });
+    return pdfPronto;
+  }
+
+  function lerPdf(buf) {
+    return pdfCarregar().then(function (lib) {
+      var tarefa = lib.getDocument({ data: new Uint8Array(buf) });
+      tarefa.onPassword = function (update, motivo) {
+        var senha = window.prompt(motivo === 2 ? 'Senha incorreta. Digite a senha do PDF:' : 'Este PDF tem senha. Digite a senha (no Bradesco costuma ser o CPF, só números):');
+        if (senha) update(senha); else tarefa.destroy();
+      };
+      return tarefa.promise.then(function (doc) {
+        var pags = [], n;
+        var seq = Promise.resolve();
+        for (n = 1; n <= Math.min(doc.numPages, 60); n++) {
+          (function (num) {
+            seq = seq.then(function () { return doc.getPage(num); }).then(function (pg) { return pg.getTextContent(); }).then(function (tc) {
+              pags.push(tc.items.map(function (t) { return { x: t.transform[4], xe: t.transform[4] + (t.width || 0), y: t.transform[5], str: t.str }; }));
+            });
+          })(n);
+        }
+        return seq.then(function () { return parsePdf(pags); });
+      });
+    });
+  }
+
   function parseExtrato(text) { return /<STMTTRN>/i.test(text) ? parseOFX(text) : parseCSV(text); }
 
   function diasEntre(a, b) {
@@ -1020,8 +1159,8 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
   /* telas */
   function impInicio() {
     return '<h2>Importar extrato</h2>' +
-      '<p class="hint" style="margin-top:8px">Escolha o arquivo do extrato do seu banco, em OFX ou CSV. O app lê a data e o valor, deixa de fora o que você já lançou e mostra um lançamento por vez para você só tocar na categoria.</p>' +
-      '<p class="hint">Na maioria dos bancos: app do banco, Extrato, Exportar ou Baixar, e escolha OFX ou CSV.</p>' +
+      '<p class="hint" style="margin-top:8px">Escolha o arquivo do extrato do seu banco, em PDF, OFX ou CSV. O app lê a data e o valor, deixa de fora o que você já lançou e mostra um lançamento por vez para você só tocar na categoria.</p>' +
+      '<p class="hint">Na maioria dos bancos: app do banco, Extrato, Exportar ou Baixar, e escolha PDF, OFX ou CSV.</p>' +
       '<label class="chk"><input type="checkbox" id="iinvert"' + (state.impInvert ? ' checked' : '') + '><span>Os valores positivos são gastos (comum em fatura de cartão)</span></label>' +
       '<div class="impbtns"><button type="button" class="primary" data-act="pick">Escolher arquivo do extrato</button></div>' +
       (state.impErr ? '<p class="warn" role="alert">' + esc(state.impErr) + '</p>' : '');
@@ -1233,11 +1372,9 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
     state.impErr = '';
     if (file.size > 8 * 1024 * 1024) { state.impErr = 'O arquivo é grande demais. Use o extrato de um período menor.'; render(); return; }
     var rd = new FileReader();
-    rd.onload = function () {
-      var raw = [];
-      try { raw = parseExtrato(decodeBuf(rd.result)); } catch (e) { raw = []; }
+    function pronto(raw, msgVazio) {
       if (!raw.length) {
-        state.impErr = 'Não consegui ler movimentações neste arquivo. Use o extrato em OFX ou CSV, com data e valor em cada linha.';
+        state.impErr = msgVazio || 'Não consegui ler movimentações neste arquivo. Use o extrato em PDF, OFX ou CSV, com data e valor em cada linha.';
       } else {
         var imp = { stage: 'resumo', fileName: file.name, raw: raw.slice(0, 3000), invert: !!state.impInvert };
         computeImp(imp);
@@ -1245,6 +1382,19 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
       }
       $('fileExt').value = '';
       impSave(); render();
+    }
+    rd.onload = function () {
+      var u8 = new Uint8Array(rd.result.slice(0, 5));
+      var ehPdf = String.fromCharCode.apply(null, u8).indexOf('%PDF') === 0;
+      if (ehPdf) {
+        state.impErr = 'Lendo o PDF…'; render();
+        lerPdf(rd.result).then(function (raw) { state.impErr = ''; pronto(raw, 'Não encontrei movimentações neste PDF. Se o banco oferece o extrato em OFX, use esse arquivo.'); })
+          .catch(function () { pronto([], 'Não consegui abrir este PDF (senha incorreta, ou o leitor não carregou sem internet na primeira vez).'); });
+        return;
+      }
+      var raw = [];
+      try { raw = parseExtrato(decodeBuf(rd.result)); } catch (e) { raw = []; }
+      pronto(raw);
     };
     rd.onerror = function () { state.impErr = 'Não foi possível abrir o arquivo.'; render(); };
     rd.readAsArrayBuffer(file);
