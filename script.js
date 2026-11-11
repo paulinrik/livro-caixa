@@ -43,7 +43,7 @@
     mes: hoje().slice(0, 7), tipo: 'despesa', aba: 'despesa',
     pendente: null, pronto: false, erro: '', modo: 'local',
     imp: { stage: 'inicio' }, obsDraft: '', impInvert: false, impErr: '',
-    view: 'mes', ptipo: 'despesa', pmodo: 'individual', compareKind: 'colunas', pper: 'ano:' + hoje().slice(0, 4), pde: null, pate: null, pall: false
+    view: 'mes', showChartValues: false, ptipo: 'despesa', pmodo: 'individual', compareKind: 'colunas', pper: 'ano:' + hoje().slice(0, 4), pde: null, pate: null, pall: false
   };
   var store = null;
 
@@ -92,14 +92,14 @@
     var lim = limitesMeses();
     var meses = listaMeses(lim[0], lim[1]);
     var tot = totais();
-    var W = Math.max(620, meses.length * 82), H = 240, L = 50, R = 10, T = 14, B = 30;
+    var W = Math.max(500, meses.length * 62), H = 240, L = 50, R = 10, T = 14, B = 30;
     el.style.width = W + 'px';
     var pw = W - L - R, ph = H - T - B;
     var mx = 0;
     meses.forEach(function (m) { var t = tot[m] || { rec: 0, desp: 0 }; mx = Math.max(mx, t.rec, t.desp); });
     var max = niceMax(mx / 100);
     var band = pw / meses.length;
-    var bw = Math.min(28, band * 0.3), gap = 3;
+    var bw = Math.min(23, band * 0.36), gap = 2;
     var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Gráfico rolável de receitas e despesas por mês">';
     var k;
     for (k = 0; k <= 5; k++) {
@@ -118,11 +118,17 @@
       if (sel) s += '<rect class="hl" x="' + (L + band * i + 4).toFixed(1) + '" y="' + T + '" width="' + (band - 8).toFixed(1) + '" height="' + ph + '" rx="6"/>';
       s += '<rect class="br" x="' + (cx - gap / 2 - bw).toFixed(1) + '" y="' + (T + ph - hr).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hr.toFixed(1) + '" rx="2"/>';
       s += '<rect class="bd" x="' + (cx + gap / 2).toFixed(1) + '" y="' + (T + ph - hd).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hd.toFixed(1) + '" rx="2"/>';
+      if (state.showChartValues) {
+        if (t.rec) s += '<text class="value-label" x="' + (cx - bw / 2 - gap / 2).toFixed(1) + '" y="' + Math.max(T + 10, T + ph - hr - 5).toFixed(1) + '" text-anchor="middle">' + CMP.format(t.rec / 100) + '</text>';
+        if (t.desp) s += '<text class="value-label" x="' + (cx + bw / 2 + gap / 2).toFixed(1) + '" y="' + Math.max(T + 10, T + ph - hd - 5).toFixed(1) + '" text-anchor="middle">' + CMP.format(t.desp / 100) + '</text>';
+      }
       s += '<text' + (sel ? ' class="sel"' : '') + ' x="' + cx.toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle">' + esc(curtoMes(m) + (meses.length > 18 ? '/' + m.slice(2,4) : '')) + '</text>';
       s += '<rect class="hit" x="' + (L + band * i).toFixed(1) + '" y="0" width="' + band.toFixed(1) + '" height="' + H + '"/>';
       s += '</g>';
     });
     el.innerHTML = s + '</svg>';
+    var toggle = $('btnChartValues');
+    if (toggle) { toggle.setAttribute('aria-pressed', state.showChartValues ? 'true' : 'false'); toggle.textContent = state.showChartValues ? '− Valores' : '＋ Valores'; }
   }
 
   function renderList() {
@@ -476,7 +482,6 @@
     h+=metric('Mês com mais lançamentos',busiest?(countByMonth[busiest.m]+' lançamentos'):'—',monthName(busiest),'');
     h+=metric('Receitas acumuladas',fmt(totalRec),rows.length+' meses analisados','rec');
     h+=metric('Despesas acumuladas',fmt(totalDesp),rows.length+' meses analisados','desp');
-    h+=metric('Saldo acumulado',(totalRec-totalDesp<0?MINUS:'')+fmt(Math.abs(totalRec-totalDesp)),'Receitas menos despesas',totalRec>=totalDesp?'rec':'desp');
     h+='</div>';
     h+='<div class="stats-section"><h3>Resumo por ano</h3><div class="timeline-scroll"><table class="stats-table"><thead><tr><th>Ano</th><th class="num">Receitas</th><th class="num">Despesas</th><th class="num">Saldo</th></tr></thead><tbody>';
     h+=yearRows.map(function(y){return '<tr><td>'+y.year+'</td><td class="num" style="color:var(--rec)">'+fmt(y.rec)+'</td><td class="num" style="color:var(--desp)">'+fmt(y.desp)+'</td><td class="num">'+(y.saldo<0?MINUS:'')+fmt(Math.abs(y.saldo))+'</td></tr>';}).join('');
@@ -1201,6 +1206,8 @@
   }
 
   function render() { renderView(); renderHead(); renderSum(); renderChart(); renderList(); renderBrk(); renderFoot(); renderPer(); renderStats(); renderImp(); }
+
+  $('btnChartValues').addEventListener('click', function () { state.showChartValues = !state.showChartValues; renderChart(); });
 
   var rsz; window.addEventListener('resize', function () { clearTimeout(rsz); rsz = setTimeout(function () { renderChart(); renderPer(); renderStats(); }, 150); });
 
