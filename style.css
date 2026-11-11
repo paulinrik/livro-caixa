@@ -331,3 +331,6 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
   .stats-table { font-size: 12px; }
   .stats-table th, .stats-table td { padding: 8px 5px; }
 }
+
+.bank-choices { display:flex; flex-wrap:wrap; gap:10px; margin:16px 0; }
+.bank-choices button { min-width:135px; }
