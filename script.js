@@ -43,7 +43,7 @@
     mes: hoje().slice(0, 7), tipo: 'despesa', aba: 'despesa',
     pendente: null, pronto: false, erro: '', modo: 'local', authMode: 'login',
     imp: { stage: 'inicio' }, obsDraft: '', impInvert: false, impErr: '',
-    view: 'mes', settingsTab: 'account', theme: 'auto', showChartValues: false, listExpanded: false, ptipo: 'despesa', pmodo: 'individual', compareKind: 'colunas', pper: 'ano:' + hoje().slice(0, 4), pde: null, pate: null, pall: false
+    view: 'mes', settingsTab: 'account', theme: 'auto', showChartValues: false, listExpanded: false, ptipo: 'despesa', pmodo: 'individual', compareKind: 'colunas', pper: 'ano:' + hoje().slice(0, 4), pde: null, pate: null, pall: false, budget: 0, goals: [], recurring: []
   };
   var store = null;
 
@@ -342,11 +342,13 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-settings-tab]'), function (b) {
       b.setAttribute('aria-pressed', b.getAttribute('data-settings-tab') === state.settingsTab ? 'true' : 'false');
     });
-    var mes = state.view === 'mes', imp = state.view === 'imp', stats = state.view === 'stats', settings = state.view === 'settings';
+    var mes = state.view === 'mes', imp = state.view === 'imp', stats = state.view === 'stats', planning = state.view === 'planning', settings = state.view === 'settings';
     ['monthnav', 'sum', 'formCard', 'chartCard', 'listCard', 'brkCard'].forEach(function (id) { $(id).hidden = !mes; });
     ['pctl', 'psum', 'pchart', 'pbrk', 'plist'].forEach(function (id) { $(id).hidden = !per; });
     $('statsCard').hidden = !stats;
+    $('planningCard').hidden = !planning;
     $('impCard').hidden = !imp;
+    if (planning) renderPlanning();
     $('foot').hidden = false;
     Array.prototype.forEach.call(document.querySelectorAll('[data-view]'), function (b) {
       if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', b.getAttribute('data-view') === state.view ? 'true' : 'false');
@@ -1243,7 +1245,7 @@
   /* ---------- armazenamento ---------- */
   var LS = 'livro-caixa-v1';
   var supabase = null, authUser = null, cloudBusy = false, cloudPending = false;
-  function localSnapshot() { return { lanc: state.lanc, custom: state.custom }; }
+  function localSnapshot() { return { lanc: state.lanc, custom: state.custom, budget: state.budget, goals: state.goals, recurring: state.recurring }; }
   function saveLocal() {
     try { localStorage.setItem(LS, JSON.stringify(localSnapshot())); } catch (e) { /* armazenamento local indisponível */ }
   }
@@ -1265,7 +1267,7 @@
     function load() {
       try {
         var r = JSON.parse(localStorage.getItem(LS) || 'null');
-        if (r && Array.isArray(r.lanc)) { state.lanc = r.lanc; state.custom = r.custom || state.custom; }
+        if (r && Array.isArray(r.lanc)) { state.lanc = r.lanc; state.custom = r.custom || state.custom; state.budget = Number(r.budget)||0; state.goals = Array.isArray(r.goals)?r.goals:[]; state.recurring = Array.isArray(r.recurring)?r.recurring:[]; }
       } catch (e) { /* sem armazenamento */ }
     }
     function save() { saveLocal(); return saveCloud(); }
@@ -1513,7 +1515,7 @@
   function bkSay(t, c) { var m = $('bkmsg'); m.textContent = t; m.className = c || ''; }
   $('btnExp').addEventListener('click', function () {
     try {
-      var data = JSON.stringify({ app: 'livro-caixa', versao: 1, exportadoEm: new Date().toISOString(), lanc: state.lanc, custom: state.custom }, null, 2);
+      var data = JSON.stringify({ app: 'livro-caixa', versao: 2, exportadoEm: new Date().toISOString(), lanc: state.lanc, custom: state.custom, budget: state.budget, goals: state.goals, recurring: state.recurring }, null, 2);
       var blob = new Blob([data], { type: 'application/json' });
       var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -1549,6 +1551,25 @@
     };
     rd.readAsText(f);
   });
+
+
+  function planId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+  function planSave(){saveLocal();saveCloud();}
+  function planMsg(t){$('planningMsg').textContent=t;}
+  function renderPlanning(){
+    var b=$('budgetValue');if(!b)return;b.value=state.budget?String(state.budget/100).replace('.',','):'';
+    var t=totais()[state.mes]||{rec:0,desp:0},p=state.budget?Math.round(t.desp/state.budget*100):0;
+    $('budgetProgress').innerHTML=state.budget?'<p>'+fmt(t.desp)+' de '+fmt(state.budget)+' · '+p+'%</p><div class="bar"><i class="'+(p>=100?'d':'r')+'" style="width:'+Math.min(100,p)+'%"></i></div><small>'+(p>=100?'Limite ultrapassado':p>=80?'Atenção: perto do limite':'Dentro do limite')+'</small>':'<p class="hint">Nenhum limite definido.</p>';
+    $('goalsList').innerHTML=state.goals.map(function(g){var q=Math.min(100,Math.round(g.current/g.target*100));return '<div class="plan-item"><b>'+esc(g.name)+'</b><span>'+fmt(g.current)+' / '+fmt(g.target)+' · '+q+'%</span><div class="bar"><i class="r" style="width:'+q+'%"></i></div><button class="ghost" data-goaldel="'+g.id+'">Excluir</button></div>';}).join('')||'<p class="hint">Nenhuma meta cadastrada.</p>';
+    $('recurringList').innerHTML=state.recurring.map(function(x){return '<div class="plan-item"><b>'+esc(x.name)+'</b><span>'+fmt(x.value)+' · dia '+x.day+'</span><button class="ghost" data-recdel="'+x.id+'">Excluir</button></div>';}).join('')||'<p class="hint">Nenhuma conta recorrente cadastrada.</p>';
+    $('recCat').innerHTML=catsFor('despesa').map(function(x){return '<option>'+esc(x)+'</option>';}).join('');
+  }
+  $('saveBudget').addEventListener('click',function(){var v=parseValor($('budgetValue').value);if(!(v>0)){planMsg('Informe um limite maior que zero.');return;}state.budget=v;planSave();renderPlanning();planMsg('Limite salvo.');});
+  $('addGoal').addEventListener('click',function(){var n=$('goalName').value.trim(),t=parseValor($('goalTarget').value),v=parseValor($('goalCurrent').value||'0');if(!n||!(t>0)||isNaN(v)||v<0){planMsg('Preencha os dados da meta corretamente.');return;}state.goals.push({id:planId(),name:n,target:t,current:v});planSave();renderPlanning();$('goalName').value='';$('goalTarget').value='';$('goalCurrent').value='';planMsg('Meta adicionada.');});
+  $('addRecurring').addEventListener('click',function(){var n=$('recName').value.trim(),v=parseValor($('recValue').value),d=Math.max(1,Math.min(31,Number($('recDay').value)||1));if(!n||!(v>0)){planMsg('Informe descrição e valor.');return;}state.recurring.push({id:planId(),name:n,value:v,day:d,cat:$('recCat').value,last:''});planSave();renderPlanning();$('recName').value='';$('recValue').value='';planMsg('Conta recorrente cadastrada.');});
+  $('generateRecurring').addEventListener('click',function(){var m=state.mes,n=0,p=m.split('-').map(Number);state.recurring.forEach(function(x){if(x.last===m)return;var d=Math.min(x.day,new Date(p[0],p[1],0).getDate());state.lanc.push({id:planId(),tipo:'despesa',centavos:x.value,categoria:x.cat,data:m+'-'+pad(d),obs:x.name+' · recorrente',criadoEm:Date.now()+n});x.last=m;n++;});planSave();render();planMsg(n+' conta(s) gerada(s).');});
+  $('createInstallments').addEventListener('click',function(){var n=$('installName').value.trim(),v=parseValor($('installTotal').value),q=Number($('installCount').value),dt=$('installFirst').value;if(!n||!(v>0)||q<2||q>60||!dt){planMsg('Confira os dados da compra parcelada.');return;}var p=dt.split('-').map(Number),base=Math.floor(v/q),rest=v%q;for(var i=0;i<q;i++){var x=new Date(p[0],p[1]-1+i,1),d=Math.min(p[2],new Date(x.getFullYear(),x.getMonth()+1,0).getDate());state.lanc.push({id:planId(),tipo:'despesa',centavos:base+(i<rest?1:0),categoria:'Compras',data:x.getFullYear()+'-'+pad(x.getMonth()+1)+'-'+pad(d),obs:n+' · parcela '+(i+1)+'/'+q,criadoEm:Date.now()+i});}planSave();render();planMsg(q+' parcelas registradas.');});
+  $('planningCard').addEventListener('click',function(e){var g=e.target.closest('[data-goaldel]'),r=e.target.closest('[data-recdel]');if(g){state.goals=state.goals.filter(function(x){return x.id!==g.getAttribute('data-goaldel');});planSave();renderPlanning();}if(r){state.recurring=state.recurring.filter(function(x){return x.id!==r.getAttribute('data-recdel');});planSave();renderPlanning();}});
 
   /* ---------- início ---------- */
   $('data').value = hoje();
