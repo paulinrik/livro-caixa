@@ -395,3 +395,94 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
     grid-template-areas:"head" "tabs" "auth" "settings" "foot";
   }
 }
+
+
+/* Correções de navegação e configurações em telas pequenas */
+html, body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+.app, .app > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.views {
+  display:flex;
+  flex-wrap:nowrap;
+  width:100%;
+  max-width:100%;
+  overflow-x:auto;
+  overflow-y:hidden;
+  white-space:nowrap;
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;
+  scrollbar-color:var(--muted) transparent;
+}
+.views button {
+  flex:0 0 auto;
+  white-space:nowrap;
+}
+.settings-folders {
+  grid-area:settingsnav;
+  display:flex;
+  flex-wrap:nowrap;
+  width:100%;
+  max-width:100%;
+  overflow-x:auto;
+  overflow-y:hidden;
+  white-space:nowrap;
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;
+  background:var(--bg);
+}
+.settings-folders[hidden] { display:none !important; }
+.settings-folders button {
+  flex:0 0 auto;
+  height:38px;
+  padding:0 20px;
+  border:0;
+  border-radius:8px;
+  background:transparent;
+  color:var(--muted);
+  cursor:pointer;
+  font-weight:600;
+  font-size:14px;
+}
+.settings-folders button[aria-pressed="true"] {
+  background:var(--surface);
+  color:var(--ink);
+  box-shadow:0 0 0 1px var(--line);
+}
+.auth-card { grid-area:account; width:100%; }
+.settings-card { grid-area:appearance; width:100%; }
+#bkCard { grid-area:backup; width:100%; min-width:0; }
+.app[data-screen="settings"] {
+  width:100%;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-areas:
+    "head"
+    "tabs"
+    "account"
+    "settingsnav"
+    "appearance"
+    "backup"
+    "foot";
+}
+@media (min-width:860px) {
+  .app[data-screen="settings"] {
+    grid-template-columns:minmax(0,1fr);
+    grid-template-areas:
+      "head"
+      "tabs"
+      "account"
+      "settingsnav"
+      "appearance"
+      "backup"
+      "foot";
+  }
+}
+/* Em dispositivos móveis, a página rola apenas no eixo vertical.
+   A navegação superior mantém sua própria rolagem horizontal. */
+body { overflow-y:auto; }
