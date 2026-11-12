@@ -1319,6 +1319,8 @@
     }).catch(function (e) { authMessage('Login feito, mas não foi possível sincronizar. Confira a configuração da tabela: ' + e.message, 'err'); });
   }
 
+  window.addEventListener('online', function () { if (authUser) saveCloud(); });
+
   function start() {
     state.modo = 'local';
     store = localStore();
