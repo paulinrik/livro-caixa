@@ -1305,6 +1305,9 @@
       var cats = (cloud.custom && cloud.custom[t] || []).concat(local.custom && local.custom[t] || []);
       state.custom[t] = cats.filter(function (v, i) { return typeof v === 'string' && cats.indexOf(v) === i; });
     });
+    state.budget = Number(cloud.budget || local.budget) || 0;
+    state.goals = (cloud.goals || []).concat(local.goals || []).filter(function(x,i,a){return x&&x.id&&a.findIndex(function(y){return y.id===x.id;})===i;});
+    state.recurring = (cloud.recurring || []).concat(local.recurring || []).filter(function(x,i,a){return x&&x.id&&a.findIndex(function(y){return y.id===x.id;})===i;});
     saveLocal();
   }
   function connectAccount() {
@@ -1545,7 +1548,10 @@
         ['receita', 'despesa'].forEach(function (t) {
           ((d.custom && d.custom[t]) || []).forEach(function (c) { if (typeof c === 'string' && state.custom[t].indexOf(c) < 0) state.custom[t].push(c); });
         });
-        store.saveCats().then(function () { fillCats(); render(); bkSay(novos + ' lançamentos importados.', 'ok'); });
+        if(Number(d.budget)>0)state.budget=Number(d.budget);
+        (Array.isArray(d.goals)?d.goals:[]).forEach(function(x){if(x&&x.id&&!state.goals.some(function(y){return y.id===x.id;}))state.goals.push(x);});
+        (Array.isArray(d.recurring)?d.recurring:[]).forEach(function(x){if(x&&x.id&&!state.recurring.some(function(y){return y.id===x.id;}))state.recurring.push(x);});
+        store.saveCats().then(function () { fillCats(); render(); bkSay(novos + ' lançamentos importados; metas e configurações mescladas.', 'ok'); });
       } catch (e) { bkSay('Arquivo inválido. Escolha um backup gerado por este app.', 'err'); }
       $('fileImp').value = '';
     };
