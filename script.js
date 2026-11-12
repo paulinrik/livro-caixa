@@ -1234,13 +1234,14 @@
 
   /* ---------- armazenamento ---------- */
   var LS = 'livro-caixa-v1';
-  var supabase = null, authUser = null, cloudBusy = false;
+  var supabase = null, authUser = null, cloudBusy = false, cloudPending = false;
   function localSnapshot() { return { lanc: state.lanc, custom: state.custom }; }
   function saveLocal() {
     try { localStorage.setItem(LS, JSON.stringify(localSnapshot())); } catch (e) { /* armazenamento local indisponível */ }
   }
   function saveCloud() {
-    if (!supabase || !authUser || cloudBusy) return Promise.resolve();
+    if (!supabase || !authUser) return Promise.resolve();
+    if (cloudBusy) { cloudPending = true; return Promise.resolve(); }
     cloudBusy = true;
     return supabase.from('caixa_dados').upsert({ user_id: authUser.id, dados: localSnapshot(), updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
       .then(function (r) {
@@ -1250,7 +1251,7 @@
       }).catch(function (e) {
         $('authStatus').textContent = 'Salvo neste aparelho. Falha na sincronização: ' + (e.message || 'verifique sua conexão');
         $('authStatus').className = 'auth-status err';
-      }).finally(function () { cloudBusy = false; });
+      }).finally(function () { cloudBusy = false; if (cloudPending) { cloudPending = false; saveCloud(); } });
   }
   function localStore() {
     function load() {
