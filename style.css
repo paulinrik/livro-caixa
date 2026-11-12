@@ -61,10 +61,10 @@ button, input, select { font: inherit; color: inherit; }
   #formCard { position: sticky; top: 16px; align-self: start; }
   .app[data-screen="per"] {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-areas: "head head" "tabs tabs" "pctl pctl" "psum psum" "pchart pchart" "pbrk plist" "bk bk" "foot foot";
+    grid-template-areas: "auth auth" "head head" "tabs tabs" "pctl pctl" "psum psum" "pchart pchart" "pbrk plist" "bk bk" "foot foot";
   }
 }
-.app[data-screen="per"] { grid-template-areas: "head" "tabs" "pctl" "psum" "pchart" "pbrk" "plist" "bk" "foot"; }
+.app[data-screen="per"] { grid-template-areas: "auth" "head" "tabs" "pctl" "psum" "pchart" "pbrk" "plist" "bk" "foot"; }
 @media (min-width: 860px) {
   .app[data-screen="per"] { grid-template-areas: "head head" "tabs tabs" "pctl pctl" "psum psum" "pchart pchart" "pbrk plist" "bk bk" "foot foot"; }
 }
@@ -220,8 +220,8 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
 .moreRow { margin-top: 12px; }
 
 /* importar extrato */
-.app[data-screen="imp"] { grid-template-areas: "head" "tabs" "imp" "bk" "foot"; }
-@media (min-width: 860px) { .app[data-screen="imp"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "tabs" "imp" "bk" "foot"; } }
+.app[data-screen="imp"] { grid-template-areas: "auth" "head" "tabs" "imp" "bk" "foot"; }
+@media (min-width: 860px) { .app[data-screen="imp"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "auth" "head" "tabs" "imp" "bk" "foot"; } }
 #impCard { grid-area: imp; max-width: 680px; width: 100%; }
 .chk { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; margin: 14px 0; cursor: pointer; }
 .chk input { width: 20px; height: 20px; margin: 1px 0 0; flex: none; accent-color: var(--accent); }
@@ -301,11 +301,11 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
 #pctl .compare-kind { flex: 0 1 230px; min-width: 190px; }
 #pchartBox { min-width: 100%; }
 #statsCard { grid-area: stats; }
-.app[data-screen="stats"] { grid-template-areas: "head" "tabs" "stats" "bk" "foot"; }
+.app[data-screen="stats"] { grid-template-areas: "auth" "head" "tabs" "stats" "bk" "foot"; }
 @media (min-width: 860px) {
   .app[data-screen="stats"] {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "head" "tabs" "stats" "bk" "foot";
+    grid-template-areas: "auth" "head" "tabs" "stats" "bk" "foot";
   }
 }
 .stats-grid {
