@@ -45,7 +45,21 @@
     <button type="button" data-view="per" aria-pressed="false">Períodos</button>
     <button type="button" data-view="stats" aria-pressed="false">Estatísticas</button>
     <button type="button" data-view="imp" aria-pressed="false">Importar</button>
+    <button type="button" data-view="settings" aria-pressed="false">Configurações</button>
   </nav>
+
+  <section class="card settings-card" id="settingsCard" hidden aria-label="Configurações">
+    <div class="cardhead"><h2>Aparência</h2></div>
+    <div class="field theme-field">
+      <label for="themeSelect">Tema do aplicativo</label>
+      <select id="themeSelect">
+        <option value="auto">Automático (dispositivo)</option>
+        <option value="light">Claro</option>
+        <option value="dark">Escuro</option>
+      </select>
+      <p class="hint">No modo automático, o Caixa acompanha o tema do seu aparelho.</p>
+    </div>
+  </section>
 
   <section class="card" id="pctl" aria-label="Filtros do período" hidden>
     <div class="pctlrow">
