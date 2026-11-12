@@ -44,6 +44,7 @@
     <button type="button" data-view="mes" aria-pressed="true">Mês</button>
     <button type="button" data-view="per" aria-pressed="false">Períodos</button>
     <button type="button" data-view="stats" aria-pressed="false">Estatísticas</button>
+    <button type="button" data-view="planning" aria-pressed="false">Planejamento</button>
     <button type="button" data-view="imp" aria-pressed="false">Importar</button>
     <button type="button" data-view="settings" aria-pressed="false">Configurações</button>
   </nav>
@@ -107,6 +108,8 @@
     <div class="cardhead"><h2>Estatísticas financeiras</h2><span class="hint">Com base nos lançamentos registrados</span></div>
     <div id="statsBox"></div>
   </section>
+
+  <section class="card" id="planningCard" hidden><h2>Planejamento financeiro</h2><div class="planning-grid"><section class="plan-panel"><h3>Limite mensal</h3><label for="budgetValue">Limite em R$</label><input id="budgetValue" inputmode="decimal" placeholder="2500,00"><button type="button" class="primary" id="saveBudget">Salvar limite</button><div id="budgetProgress"></div></section><section class="plan-panel"><h3>Metas financeiras</h3><label for="goalName">Nome</label><input id="goalName" placeholder="Reserva de emergência"><label for="goalTarget">Objetivo em R$</label><input id="goalTarget" inputmode="decimal"><label for="goalCurrent">Já guardado em R$</label><input id="goalCurrent" inputmode="decimal"><button type="button" class="primary" id="addGoal">Adicionar meta</button><div id="goalsList"></div></section><section class="plan-panel"><h3>Despesas recorrentes</h3><label for="recName">Descrição</label><input id="recName" placeholder="Internet"><label for="recValue">Valor em R$</label><input id="recValue" inputmode="decimal"><label for="recDay">Dia do mês</label><input id="recDay" type="number" min="1" max="31" value="10"><label for="recCat">Categoria</label><select id="recCat"></select><button type="button" class="primary" id="addRecurring">Cadastrar</button><div id="recurringList"></div><button type="button" class="secondary" id="generateRecurring">Gerar contas do mês</button></section><section class="plan-panel"><h3>Compras parceladas</h3><label for="installName">Descrição</label><input id="installName"><label for="installTotal">Valor total em R$</label><input id="installTotal" inputmode="decimal"><label for="installCount">Quantidade de parcelas</label><input id="installCount" type="number" min="2" max="60" value="12"><label for="installFirst">Primeira parcela</label><input id="installFirst" type="date"><button type="button" class="primary" id="createInstallments">Registrar parcelas</button></section></div><p id="planningMsg"></p></section>
 
   <section class="card" id="impCard" aria-label="Importar extrato" hidden>
     <input type="file" id="fileExt" accept=".pdf,.ofx,.csv,.txt" hidden>
