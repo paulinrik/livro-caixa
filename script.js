@@ -487,13 +487,16 @@
     function monthValue(r, key) { return r ? fmt(r[key]) : '—'; }
     function monthName(r) { return r ? labelMes(r.m) : 'Sem dados'; }
     var h='<div class="stats-grid">';
-    h+=metric('Receitas acumuladas',fmt(totalRec),rows.length+' meses analisados','rec stat-total');
+    var saldoTotal=totalRec-totalDesp;
+    var saldoTotalTexto=(saldoTotal<0?MINUS:'')+fmt(Math.abs(saldoTotal));
+    h+=metric('Saldo total',saldoTotalTexto,rows.length+' meses analisados',saldoTotal>0?'saldo-positive stat-total':saldoTotal<0?'saldo-negative stat-total':'stat-total');
     h+=metric('Maior despesa',monthValue(maxDesp,'desp'),monthName(maxDesp),'desp');
     h+=metric('Menor despesa',monthValue(minDesp,'desp'),monthName(minDesp),'desp');
     h+=metric('Maior receita',monthValue(maxRec,'rec'),monthName(maxRec),'rec');
     h+=metric('Menor receita',monthValue(minRec,'rec'),monthName(minRec),'rec');
     h+=metric('Melhor saldo mensal',bestSaldo?fmt(bestSaldo.saldo):'—',monthName(bestSaldo),bestSaldo&&bestSaldo.saldo>=0?'rec':'desp');
     h+=metric('Mês com mais lançamentos',busiest?(countByMonth[busiest.m]+' lançamentos'):'—',monthName(busiest),'');
+    h+=metric('Receitas acumuladas',fmt(totalRec),rows.length+' meses analisados','rec');
     h+=metric('Despesas acumuladas',fmt(totalDesp),rows.length+' meses analisados','desp');
     h+='</div>';
     h+='<div class="stats-section"><h3>Resumo por ano</h3><div class="timeline-scroll"><table class="stats-table"><thead><tr><th>Ano</th><th class="num">Receitas</th><th class="num">Despesas</th><th class="num">Saldo</th></tr></thead><tbody>';
