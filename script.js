@@ -43,7 +43,7 @@
     mes: hoje().slice(0, 7), tipo: 'despesa', aba: 'despesa',
     pendente: null, pronto: false, erro: '', modo: 'local', authMode: 'login',
     imp: { stage: 'inicio' }, obsDraft: '', impInvert: false, impErr: '',
-    view: 'mes', settingsTab: 'account', theme: 'auto', showChartValues: false, listExpanded: false, ptipo: 'despesa', pmodo: 'individual', compareKind: 'colunas', pper: 'ano:' + hoje().slice(0, 4), pde: null, pate: null, pall: false, budget: 0, goals: [], recurring: []
+    view: 'mes', settingsTab: 'account', theme: 'auto', showChartValues: false, listExpanded: false, listSearch: '', ptipo: 'despesa', pmodo: 'individual', compareKind: 'colunas', pper: 'ano:' + hoje().slice(0, 4), pde: null, pate: null, pall: false, budget: 0, goals: [], recurring: []
   };
   var store = null;
 
@@ -135,7 +135,7 @@
     var el = $('lista');
     if (!state.pronto) { el.innerHTML = '<p class="empty">Carregando seus lançamentos…</p>'; return; }
     if (state.erro) { el.innerHTML = '<p class="empty">' + esc(state.erro) + '</p>'; return; }
-    var items = state.lanc.filter(function (l) { return mesDe(l.data) === state.mes; })
+    var items = state.lanc.filter(function (l) { return mesDe(l.data) === state.mes && (!state.listSearch || (String(l.categoria+' '+(l.obs||'')+' '+fmt(l.centavos)).toLowerCase().indexOf(state.listSearch.toLowerCase())>=0)); })
       .sort(function (a, b) { return b.data.localeCompare(a.data) || (b.hora || '').localeCompare(a.hora || '') || (b.criadoEm || 0) - (a.criadoEm || 0); });
     if (!items.length) {
       el.innerHTML = '<p class="empty">Nenhum lançamento neste mês. Use o formulário para registrar a primeira receita ou despesa.</p>';
@@ -158,7 +158,7 @@
         var h = '<li class="row"><span class="dot ' + (r ? 'r' : 'd') + '"></span>' +
           '<div class="txt"><b>' + esc(l.categoria) + '</b>' + ((l.hora || l.obs) ? '<span class="obs">' + esc((l.hora || '') + (l.hora && l.obs ? ' · ' : '') + (l.obs || '')) + '</span>' : '') + '</div>' +
           '<div class="amt num ' + (r ? 'r' : 'd') + '">' + (r ? '+' : MINUS) + fmt(l.centavos) + '</div>' +
-          '<button type="button" class="ghost" data-del="' + esc(l.id) + '" aria-label="Excluir lançamento de ' + esc(l.categoria) + '">Excluir</button>';
+          '<button type="button" class="ghost" data-dup="' + esc(l.id) + '">Duplicar</button><button type="button" class="ghost" data-del="' + esc(l.id) + '" aria-label="Excluir lançamento de ' + esc(l.categoria) + '">Excluir</button>';
         if (state.pendente === l.id) {
           h += '<div class="confirm">Excluir este lançamento? <button type="button" class="danger" data-ok="' + esc(l.id) + '">Excluir</button><button type="button" data-no="1">Cancelar</button></div>';
         }
@@ -1234,6 +1234,7 @@
   function render() { renderView(); renderHead(); renderSum(); renderChart(); renderList(); renderBrk(); renderFoot(); renderPer(); renderStats(); renderImp(); }
 
   $('btnChartValues').addEventListener('click', function () { state.showChartValues = !state.showChartValues; renderChart(); });
+  $('listSearch').addEventListener('input',function(){state.listSearch=this.value.trim();state.listExpanded=false;renderList();});
   $('lista').addEventListener('click', function (e) {
     var target = e.target;
     if (target && target.id === 'btnExpandList') { state.listExpanded = true; renderList(); }
@@ -1415,7 +1416,7 @@
   }
 
   document.addEventListener('click', function (e) {
-    var t = e.target.closest ? e.target.closest('[data-nav],[data-tipo],[data-aba],[data-gomes],[data-del],[data-ok],[data-no]') : null;
+    var t = e.target.closest ? e.target.closest('[data-nav],[data-tipo],[data-aba],[data-gomes],[data-del],[data-ok],[data-no],[data-dup]') : null;
     if (!t) return;
     if (t.hasAttribute('data-nav')) {
       var n = t.getAttribute('data-nav');
@@ -1427,6 +1428,9 @@
       state.aba = t.getAttribute('data-aba'); renderBrk();
     } else if (t.hasAttribute('data-gomes')) {
       state.mes = t.getAttribute('data-gomes'); state.pendente = null; render();
+    } else if (t.hasAttribute('data-dup')) {
+      var source=state.lanc.filter(function(x){return x.id===t.getAttribute('data-dup');})[0];
+      if(source&&store){var copy={tipo:source.tipo,centavos:source.centavos,categoria:source.categoria,data:hoje(),obs:source.obs||'',criadoEm:Date.now()};store.add(copy);}
     } else if (t.hasAttribute('data-del')) {
       state.pendente = t.getAttribute('data-del'); renderList();
     } else if (t.hasAttribute('data-no')) {
