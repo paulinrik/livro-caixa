@@ -43,7 +43,7 @@
     mes: hoje().slice(0, 7), tipo: 'despesa', aba: 'despesa',
     pendente: null, pronto: false, erro: '', modo: 'local', authMode: 'login',
     imp: { stage: 'inicio' }, obsDraft: '', impInvert: false, impErr: '',
-    view: 'mes', theme: 'auto', showChartValues: false, listExpanded: false, ptipo: 'despesa', pmodo: 'individual', compareKind: 'colunas', pper: 'ano:' + hoje().slice(0, 4), pde: null, pate: null, pall: false
+    view: 'mes', settingsTab: 'account', theme: 'auto', showChartValues: false, listExpanded: false, ptipo: 'despesa', pmodo: 'individual', compareKind: 'colunas', pper: 'ano:' + hoje().slice(0, 4), pde: null, pate: null, pall: false
   };
   var store = null;
 
@@ -334,14 +334,19 @@
   function renderView() {
     var per = state.view === 'per';
     $('app').setAttribute('data-screen', state.view);
-    $('authCard').hidden = !!authUser && state.view !== 'settings';
-    $('settingsCard').hidden = state.view !== 'settings';
+    var settings = state.view === 'settings';
+    $('authCard').hidden = !settings || state.settingsTab !== 'account';
+    $('settingsFolders').hidden = !settings;
+    $('settingsCard').hidden = !settings || state.settingsTab !== 'appearance';
+    $('bkCard').hidden = !settings || state.settingsTab !== 'backup';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-settings-tab]'), function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-settings-tab') === state.settingsTab ? 'true' : 'false');
+    });
     var mes = state.view === 'mes', imp = state.view === 'imp', stats = state.view === 'stats', settings = state.view === 'settings';
     ['monthnav', 'sum', 'formCard', 'chartCard', 'listCard', 'brkCard'].forEach(function (id) { $(id).hidden = !mes; });
     ['pctl', 'psum', 'pchart', 'pbrk', 'plist'].forEach(function (id) { $(id).hidden = !per; });
     $('statsCard').hidden = !stats;
     $('impCard').hidden = !imp;
-    $('bkCard').hidden = imp || settings;
     $('foot').hidden = settings;
     Array.prototype.forEach.call(document.querySelectorAll('[data-view]'), function (b) {
       if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', b.getAttribute('data-view') === state.view ? 'true' : 'false');
@@ -1348,6 +1353,12 @@
   }
 
   $('themeSelect').addEventListener('change', function () { applyTheme(this.value); });
+  $('settingsFolders').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-settings-tab]') : null;
+    if (!b) return;
+    state.settingsTab = b.getAttribute('data-settings-tab');
+    renderView();
+  });
   $('authSwitch').addEventListener('click', function () {
     state.authMode = state.authMode === 'login' ? 'signup' : 'login'; renderAuth(); authMessage('', '');
   });
