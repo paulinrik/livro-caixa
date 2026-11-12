@@ -43,7 +43,7 @@
     mes: hoje().slice(0, 7), tipo: 'despesa', aba: 'despesa',
     pendente: null, pronto: false, erro: '', modo: 'local', authMode: 'login',
     imp: { stage: 'inicio' }, obsDraft: '', impInvert: false, impErr: '',
-    view: 'mes', showChartValues: false, listExpanded: false, ptipo: 'despesa', pmodo: 'individual', compareKind: 'colunas', pper: 'ano:' + hoje().slice(0, 4), pde: null, pate: null, pall: false
+    view: 'mes', theme: 'auto', showChartValues: false, listExpanded: false, ptipo: 'despesa', pmodo: 'individual', compareKind: 'colunas', pper: 'ano:' + hoje().slice(0, 4), pde: null, pate: null, pall: false
   };
   var store = null;
 
@@ -334,12 +334,15 @@
   function renderView() {
     var per = state.view === 'per';
     $('app').setAttribute('data-screen', state.view);
-    var mes = state.view === 'mes', imp = state.view === 'imp', stats = state.view === 'stats';
+    $('authCard').hidden = !!authUser && state.view !== 'settings';
+    $('settingsCard').hidden = state.view !== 'settings';
+    var mes = state.view === 'mes', imp = state.view === 'imp', stats = state.view === 'stats', settings = state.view === 'settings';
     ['monthnav', 'sum', 'formCard', 'chartCard', 'listCard', 'brkCard'].forEach(function (id) { $(id).hidden = !mes; });
     ['pctl', 'psum', 'pchart', 'pbrk', 'plist'].forEach(function (id) { $(id).hidden = !per; });
     $('statsCard').hidden = !stats;
     $('impCard').hidden = !imp;
-    $('bkCard').hidden = imp;
+    $('bkCard').hidden = imp || settings;
+    $('foot').hidden = settings;
     Array.prototype.forEach.call(document.querySelectorAll('[data-view]'), function (b) {
       if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', b.getAttribute('data-view') === state.view ? 'true' : 'false');
     });
@@ -1321,11 +1324,22 @@
 
   window.addEventListener('online', function () { if (authUser) saveCloud(); });
 
+  function applyTheme(theme) {
+    state.theme = theme || 'auto';
+    if (state.theme === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', state.theme);
+    try { localStorage.setItem('livro-caixa-theme', state.theme); } catch (e) {}
+    if ($('themeSelect')) $('themeSelect').value = state.theme;
+  }
+
   function start() {
     state.modo = 'local';
     store = localStore();
     state.pronto = true;
     state.imp = impLoad() || state.imp;
+    var savedTheme = 'auto';
+    try { savedTheme = localStorage.getItem('livro-caixa-theme') || 'auto'; } catch (e) {}
+    applyTheme(savedTheme);
     fillCats(); renderForm(); render();
     if (window.supabase && window.supabase.createClient) {
       supabase = window.supabase.createClient('https://qtupublxssisrzfalaij.supabase.co', 'sb_publishable_7N_5ILhk0C79VPAu7FiWMw_Qfz6ERSN');
@@ -1333,6 +1347,7 @@
     } else authMessage('Login indisponível: não foi possível carregar o serviço de autenticação.', 'err');
   }
 
+  $('themeSelect').addEventListener('change', function () { applyTheme(this.value); });
   $('authSwitch').addEventListener('click', function () {
     state.authMode = state.authMode === 'login' ? 'signup' : 'login'; renderAuth(); authMessage('', '');
   });
