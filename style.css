@@ -486,3 +486,5 @@ html, body {
 /* Em dispositivos móveis, a página rola apenas no eixo vertical.
    A navegação superior mantém sua própria rolagem horizontal. */
 body { overflow-y:auto; }
+
+#planningCard{grid-area:planning;min-width:0}.planning-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px}.plan-panel{min-width:0;border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--bg);display:grid;gap:8px}.plan-panel h3{font-size:15px;margin:0}.plan-panel label{font-size:13px;font-weight:600}.plan-panel input,.plan-panel select{width:100%;height:42px;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);padding:0 10px}.plan-item{display:grid;gap:5px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}.plan-item span,.plan-panel small{color:var(--muted)}
