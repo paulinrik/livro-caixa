@@ -1343,7 +1343,7 @@
     if (password.length < 6) return authMessage('A senha precisa ter pelo menos 6 caracteres.', 'err');
     $('authSubmit').disabled = true;
     var action = state.authMode === 'signup'
-      ? supabase.auth.signUp({ email: email, password: password })
+      ? supabase.auth.signUp({ email: email, password: password, options: { emailRedirectTo: 'https://paulinrik.github.io/livro-caixa/' } })
       : supabase.auth.signInWithPassword({ email: email, password: password });
     action.then(function (r) {
       if (r.error) throw r.error;
