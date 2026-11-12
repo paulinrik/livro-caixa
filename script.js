@@ -75,10 +75,15 @@
     var t = totais()[state.mes] || { rec: 0, desp: 0 };
     var saldo = t.rec - t.desp;
     var saldoTxt = saldo > 0 ? '+' + fmt(saldo) : saldo < 0 ? MINUS + fmt(-saldo) : fmt(0);
+    var topCat = {}, days = new Date(Number(state.mes.slice(0,4)), Number(state.mes.slice(5,7)), 0).getDate();
+    state.lanc.forEach(function(l){if(mesDe(l.data)===state.mes&&l.tipo==='despesa')topCat[l.categoria]=(topCat[l.categoria]||0)+l.centavos;});
+    var maior=Object.keys(topCat).sort(function(a,b){return topCat[b]-topCat[a];})[0];
+    var gastoPct=t.rec?Math.round(t.desp/t.rec*100):null;
     $('sum').innerHTML =
       '<div class="rec"><div class="k">Receitas</div><div class="v num">' + fmt(t.rec) + '</div></div>' +
       '<div class="desp"><div class="k">Despesas</div><div class="v num">' + fmt(t.desp) + '</div></div>' +
-      '<div class="saldo"><div class="k">Saldo do mês</div><div class="v num' + (saldo < 0 ? ' neg' : '') + '">' + saldoTxt + '</div></div>';
+      '<div class="saldo"><div class="k">Saldo do mês</div><div class="v num' + (saldo < 0 ? ' neg' : '') + '">' + saldoTxt + '</div></div>' +
+      '<div class="sum-insights"><span>Gasto diário médio: <b>'+fmt(Math.round(t.desp/Math.max(1,days)))+'</b></span><span>Da renda gasta: <b>'+(gastoPct===null?'—':gastoPct+'%')+'</b></span><span>Maior categoria: <b>'+(maior?esc(maior):'—')+'</b></span></div>';
   }
 
   function renderChart() {
