@@ -41,7 +41,7 @@
   var state = {
     lanc: [], custom: { receita: [], despesa: [] },
     mes: hoje().slice(0, 7), tipo: 'despesa', aba: 'despesa',
-    pendente: null, pronto: false, erro: '', modo: 'local',
+    pendente: null, pronto: false, erro: '', modo: 'local', authMode: 'login',
     imp: { stage: 'inicio' }, obsDraft: '', impInvert: false, impErr: '',
     view: 'mes', showChartValues: false, listExpanded: false, ptipo: 'despesa', pmodo: 'individual', compareKind: 'colunas', pper: 'ano:' + hoje().slice(0, 4), pde: null, pate: null, pall: false
   };
@@ -1234,6 +1234,24 @@
 
   /* ---------- armazenamento ---------- */
   var LS = 'livro-caixa-v1';
+  var supabase = null, authUser = null, cloudBusy = false;
+  function localSnapshot() { return { lanc: state.lanc, custom: state.custom }; }
+  function saveLocal() {
+    try { localStorage.setItem(LS, JSON.stringify(localSnapshot())); } catch (e) { /* armazenamento local indisponível */ }
+  }
+  function saveCloud() {
+    if (!supabase || !authUser || cloudBusy) return Promise.resolve();
+    cloudBusy = true;
+    return supabase.from('caixa_dados').upsert({ user_id: authUser.id, dados: localSnapshot(), updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      .then(function (r) {
+        if (r.error) throw r.error;
+        $('authStatus').textContent = 'Sincronizado com a nuvem';
+        $('authStatus').className = 'auth-status ok';
+      }).catch(function (e) {
+        $('authStatus').textContent = 'Salvo neste aparelho. Falha na sincronização: ' + (e.message || 'verifique sua conexão');
+        $('authStatus').className = 'auth-status err';
+      }).finally(function () { cloudBusy = false; });
+  }
   function localStore() {
     function load() {
       try {
@@ -1241,17 +1259,63 @@
         if (r && Array.isArray(r.lanc)) { state.lanc = r.lanc; state.custom = r.custom || state.custom; }
       } catch (e) { /* sem armazenamento */ }
     }
-    function save() { try { localStorage.setItem(LS, JSON.stringify({ lanc: state.lanc, custom: state.custom })); } catch (e) { /* ignora */ } }
+    function save() { saveLocal(); return saveCloud(); }
     load();
     return {
-      add: function (rec) { rec.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); state.lanc.push(rec); save(); render(); return Promise.resolve(); },
-      remove: function (id) { state.lanc = state.lanc.filter(function (l) { return l.id !== id; }); save(); render(); return Promise.resolve(); },
+      add: function (rec) { rec.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); state.lanc.push(rec); saveLocal(); render(); return saveCloud(); },
+      remove: function (id) { state.lanc = state.lanc.filter(function (l) { return l.id !== id; }); saveLocal(); render(); return saveCloud(); },
       addMany: function (recs) {
         recs.forEach(function (rec) { rec.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7); state.lanc.push(rec); });
-        save(); render(); return Promise.resolve();
+        saveLocal(); render(); return saveCloud();
       },
-      saveCats: function () { save(); return Promise.resolve(); }
+      saveCats: function () { saveLocal(); return saveCloud(); }
     };
+  }
+
+  function authMessage(msg, cls) {
+    $('authStatus').textContent = msg || '';
+    $('authStatus').className = 'auth-status' + (cls ? ' ' + cls : '');
+  }
+  function renderAuth() {
+    $('authSigned').hidden = !authUser;
+    $('authForm').hidden = !!authUser;
+    $('authUserLabel').textContent = authUser ? authUser.email : '';
+    $('authModeTitle').textContent = state.authMode === 'signup' ? 'Criar conta' : 'Entrar na sua conta';
+    $('authSubmit').textContent = state.authMode === 'signup' ? 'Criar conta' : 'Entrar';
+    $('authSwitch').textContent = state.authMode === 'signup' ? 'Já tenho conta · Entrar' : 'Ainda não tenho conta · Criar conta';
+    if (authUser) authMessage('Conta conectada. Seus dados são sincronizados quando há internet.', 'ok');
+  }
+  function mergeRemote(remote) {
+    var local = localSnapshot(), cloud = remote && Array.isArray(remote.lanc) ? remote : { lanc: [], custom: { receita: [], despesa: [] } };
+    var byId = {};
+    cloud.lanc.concat(local.lanc).forEach(function (l) { if (l && l.id) byId[l.id] = l; });
+    state.lanc = Object.keys(byId).map(function (k) { return byId[k]; });
+    ['receita','despesa'].forEach(function (t) {
+      var cats = (cloud.custom && cloud.custom[t] || []).concat(local.custom && local.custom[t] || []);
+      state.custom[t] = cats.filter(function (v, i) { return typeof v === 'string' && cats.indexOf(v) === i; });
+    });
+    saveLocal();
+  }
+  function connectAccount() {
+    if (!supabase) return;
+    supabase.auth.getSession().then(function (r) {
+      if (r.error) throw r.error;
+      if (r.data.session) return handleSession(r.data.session);
+      renderAuth();
+    }).catch(function (e) { authMessage('Não foi possível verificar a sessão: ' + e.message, 'err'); });
+    supabase.auth.onAuthStateChange(function (event, session) {
+      if (event === 'SIGNED_OUT') { authUser = null; renderAuth(); authMessage('Você saiu da sua conta. Os dados continuam neste aparelho.', ''); }
+      else if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) handleSession(session);
+    });
+  }
+  function handleSession(session) {
+    authUser = session.user; renderAuth();
+    authMessage('Conectando e conferindo seus dados…', '');
+    supabase.from('caixa_dados').select('dados').eq('user_id', authUser.id).maybeSingle().then(function (r) {
+      if (r.error) throw r.error;
+      mergeRemote(r.data && r.data.dados);
+      saveCloud().then(function () { fillCats(); renderForm(); render(); });
+    }).catch(function (e) { authMessage('Login feito, mas não foi possível sincronizar. Confira a configuração da tabela: ' + e.message, 'err'); });
   }
 
   function start() {
@@ -1260,7 +1324,34 @@
     state.pronto = true;
     state.imp = impLoad() || state.imp;
     fillCats(); renderForm(); render();
+    if (window.supabase && window.supabase.createClient) {
+      supabase = window.supabase.createClient('https://qtupublxssisrzfalaij.supabase.co', 'sb_publishable_7N_5ILhk0C79VPAu7FiWMw_Qfz6ERSN');
+      connectAccount();
+    } else authMessage('Login indisponível: não foi possível carregar o serviço de autenticação.', 'err');
   }
+
+  $('authSwitch').addEventListener('click', function () {
+    state.authMode = state.authMode === 'login' ? 'signup' : 'login'; renderAuth(); authMessage('', '');
+  });
+  $('authForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!supabase) return authMessage('Serviço de login indisponível.', 'err');
+    var email = $('authEmail').value.trim(), password = $('authPassword').value;
+    if (password.length < 6) return authMessage('A senha precisa ter pelo menos 6 caracteres.', 'err');
+    $('authSubmit').disabled = true;
+    var action = state.authMode === 'signup'
+      ? supabase.auth.signUp({ email: email, password: password })
+      : supabase.auth.signInWithPassword({ email: email, password: password });
+    action.then(function (r) {
+      if (r.error) throw r.error;
+      if (state.authMode === 'signup' && !r.data.session) authMessage('Conta criada! Confirme seu e-mail pelo link enviado para entrar.', 'ok');
+      else authMessage('Autenticação realizada. Preparando seus dados…', 'ok');
+    }).catch(function (err) { authMessage(err.message || 'Não foi possível autenticar.', 'err'); })
+      .finally(function () { $('authSubmit').disabled = false; });
+  });
+  $('authSignout').addEventListener('click', function () {
+    if (supabase) supabase.auth.signOut().then(function (r) { if (r.error) authMessage(r.error.message, 'err'); });
+  });
 
   /* ---------- eventos ---------- */
   function say(text, cls) {
