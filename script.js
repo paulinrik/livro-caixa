@@ -43,7 +43,7 @@
     mes: hoje().slice(0, 7), tipo: 'despesa', aba: 'despesa',
     pendente: null, pronto: false, erro: '', modo: 'local',
     imp: { stage: 'inicio' }, obsDraft: '', impInvert: false, impErr: '',
-    view: 'mes', showChartValues: false, ptipo: 'despesa', pmodo: 'individual', compareKind: 'colunas', pper: 'ano:' + hoje().slice(0, 4), pde: null, pate: null, pall: false
+    view: 'mes', showChartValues: false, listExpanded: false, ptipo: 'despesa', pmodo: 'individual', compareKind: 'colunas', pper: 'ano:' + hoje().slice(0, 4), pde: null, pate: null, pall: false
   };
   var store = null;
 
@@ -92,14 +92,14 @@
     var lim = limitesMeses();
     var meses = listaMeses(lim[0], lim[1]);
     var tot = totais();
-    var W = Math.max(500, meses.length * 62), H = 240, L = 50, R = 10, T = 14, B = 30;
+    var W = Math.max(440, meses.length * 52), H = 240, L = 50, R = 10, T = 14, B = 30;
     el.style.width = W + 'px';
     var pw = W - L - R, ph = H - T - B;
     var mx = 0;
     meses.forEach(function (m) { var t = tot[m] || { rec: 0, desp: 0 }; mx = Math.max(mx, t.rec, t.desp); });
     var max = niceMax(mx / 100);
     var band = pw / meses.length;
-    var bw = Math.min(23, band * 0.36), gap = 2;
+    var bw = Math.min(25, band * 0.39), gap = 1;
     var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Gráfico rolável de receitas e despesas por mês">';
     var k;
     for (k = 0; k <= 5; k++) {
@@ -146,7 +146,13 @@
       if (!last || last.data !== l.data) { last = { data: l.data, items: [] }; groups.push(last); }
       last.items.push(l);
     });
-    el.innerHTML = groups.map(function (g) {
+    var shownItems = state.listExpanded ? items : items.slice(0, 5);
+    var shownIds = {};
+    shownItems.forEach(function (l) { shownIds[l.id] = true; });
+    var visibleGroups = groups.map(function (g) {
+      return { data: g.data, items: g.items.filter(function (l) { return !!shownIds[l.id]; }) };
+    }).filter(function (g) { return g.items.length; });
+    var listHtml = visibleGroups.map(function (g) {
       return '<div class="dia"><h3>' + esc(labelDia(g.data)) + '</h3><ul>' + g.items.map(function (l) {
         var r = l.tipo === 'receita';
         var h = '<li class="row"><span class="dot ' + (r ? 'r' : 'd') + '"></span>' +
@@ -159,6 +165,13 @@
         return h + '</li>';
       }).join('') + '</ul></div>';
     }).join('');
+    var controls = '';
+    if (items.length > 5) {
+      controls = state.listExpanded
+        ? '<button type="button" class="list-toggle" id="btnCollapseList">Mostrar menos</button>'
+        : '<button type="button" class="list-toggle" id="btnExpandList">Mostrar todos (' + items.length + ')</button>';
+    }
+    el.innerHTML = listHtml + controls;
   }
 
   function renderBrk() {
@@ -474,13 +487,13 @@
     function monthValue(r, key) { return r ? fmt(r[key]) : '—'; }
     function monthName(r) { return r ? labelMes(r.m) : 'Sem dados'; }
     var h='<div class="stats-grid">';
+    h+=metric('Receitas acumuladas',fmt(totalRec),rows.length+' meses analisados','rec stat-total');
     h+=metric('Maior despesa',monthValue(maxDesp,'desp'),monthName(maxDesp),'desp');
     h+=metric('Menor despesa',monthValue(minDesp,'desp'),monthName(minDesp),'desp');
     h+=metric('Maior receita',monthValue(maxRec,'rec'),monthName(maxRec),'rec');
     h+=metric('Menor receita',monthValue(minRec,'rec'),monthName(minRec),'rec');
     h+=metric('Melhor saldo mensal',bestSaldo?fmt(bestSaldo.saldo):'—',monthName(bestSaldo),bestSaldo&&bestSaldo.saldo>=0?'rec':'desp');
     h+=metric('Mês com mais lançamentos',busiest?(countByMonth[busiest.m]+' lançamentos'):'—',monthName(busiest),'');
-    h+=metric('Receitas acumuladas',fmt(totalRec),rows.length+' meses analisados','rec');
     h+=metric('Despesas acumuladas',fmt(totalDesp),rows.length+' meses analisados','desp');
     h+='</div>';
     h+='<div class="stats-section"><h3>Resumo por ano</h3><div class="timeline-scroll"><table class="stats-table"><thead><tr><th>Ano</th><th class="num">Receitas</th><th class="num">Despesas</th><th class="num">Saldo</th></tr></thead><tbody>';
@@ -1208,6 +1221,11 @@
   function render() { renderView(); renderHead(); renderSum(); renderChart(); renderList(); renderBrk(); renderFoot(); renderPer(); renderStats(); renderImp(); }
 
   $('btnChartValues').addEventListener('click', function () { state.showChartValues = !state.showChartValues; renderChart(); });
+  $('lista').addEventListener('click', function (e) {
+    var target = e.target;
+    if (target && target.id === 'btnExpandList') { state.listExpanded = true; renderList(); }
+    if (target && target.id === 'btnCollapseList') { state.listExpanded = false; renderList(); }
+  });
 
   var rsz; window.addEventListener('resize', function () { clearTimeout(rsz); rsz = setTimeout(function () { renderChart(); renderPer(); renderStats(); }, 150); });
 
