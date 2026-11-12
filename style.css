@@ -322,6 +322,8 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
 }
 .stat-card.stat-total { grid-column: 1 / -1; padding: 19px 20px; background: var(--hl); border-color: var(--line); }
 .stat-card.stat-total .v { font-size: clamp(28px, 4vw, 36px); margin-top: 7px; }
+.stat-card.saldo-positive .v { color: var(--rec); }
+.stat-card.saldo-negative .v { color: var(--desp); }
 .stat-card .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
 .stat-card .v { margin-top: 5px; font-family: var(--font-display); font-weight: 700; font-size: 20px; overflow-wrap: anywhere; }
 .stat-card .sub { margin-top: 3px; color: var(--muted); font-size: 12px; }
