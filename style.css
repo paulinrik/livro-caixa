@@ -142,7 +142,9 @@ h2 { font-size: 17px; line-height: 1.2; }
 .legend { display: flex; gap: 14px; font-size: 13px; color: var(--muted); }
 .chart-values-btn { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 8px; padding: 5px 9px; font-size: 12px; cursor: pointer; }
 .chart-values-btn:hover, .chart-values-btn[aria-pressed="true"] { background: var(--hl); color: var(--ink); }
-.chart-values-btn[aria-pressed="true"] { border-color: var(--accent); }
+ .chart-values-btn[aria-pressed="true"] { border-color: var(--accent); }
+.list-toggle { display: block; margin: 14px auto 2px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 9px; background: transparent; color: var(--accent); font: inherit; font-size: 13px; cursor: pointer; }
+.list-toggle:hover { background: var(--hl); }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
 .legend .r i { background: var(--rec); }
 .legend .d i { background: var(--desp); }
