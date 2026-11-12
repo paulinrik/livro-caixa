@@ -347,7 +347,7 @@
     ['pctl', 'psum', 'pchart', 'pbrk', 'plist'].forEach(function (id) { $(id).hidden = !per; });
     $('statsCard').hidden = !stats;
     $('impCard').hidden = !imp;
-    $('foot').hidden = settings;
+    $('foot').hidden = false;
     Array.prototype.forEach.call(document.querySelectorAll('[data-view]'), function (b) {
       if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', b.getAttribute('data-view') === state.view ? 'true' : 'false');
     });
@@ -1209,7 +1209,7 @@
 
   function renderFoot() {
     $('foot').textContent = !state.pronto ? '' :
-      'Seus lançamentos ficam salvos só neste aparelho. Use o backup abaixo para guardar uma cópia ou levar para outro aparelho.';
+      'Seus lançamentos ficam sincronizados com sua conta na nuvem quando há internet e também salvos neste aparelho para uso offline. O backup permite guardar uma cópia extra ou transferir seus dados.';
   }
 
   function fillCats(keep) {
