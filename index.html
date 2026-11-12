@@ -48,6 +48,12 @@
     <button type="button" data-view="settings" aria-pressed="false">Configurações</button>
   </nav>
 
+  <nav class="settings-folders" id="settingsFolders" hidden aria-label="Seções das configurações">
+    <button type="button" data-settings-tab="account" aria-pressed="true">Conta</button>
+    <button type="button" data-settings-tab="appearance" aria-pressed="false">Aparência</button>
+    <button type="button" data-settings-tab="backup" aria-pressed="false">Backups</button>
+  </nav>
+
   <section class="card settings-card" id="settingsCard" hidden aria-label="Configurações">
     <div class="cardhead"><h2>Aparência</h2></div>
     <div class="field theme-field">
@@ -168,7 +174,7 @@
 
   <section class="card" id="bkCard">
     <div class="cardhead"><h2>Backup</h2></div>
-    <p class="hint">Os dados ficam só neste aparelho. Exporte uma cópia de tempos em tempos, ou para levar tudo para outro celular.</p>
+    <p class="hint">Seus lançamentos ficam salvos na sua conta e sincronizados com a nuvem quando há internet. Também mantemos uma cópia neste aparelho para você continuar usando o Caixa offline. Exporte um backup de tempos em tempos como segurança extra.</p>
     <div class="bkrow">
       <button type="button" class="secondary" id="btnExp">Exportar backup</button>
       <button type="button" class="secondary" id="btnImp">Importar backup</button>
