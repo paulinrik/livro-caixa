@@ -20,7 +20,17 @@
 </head>
 <body>
 <div class="app" id="app" data-screen="mes">
-  <section class="card auth-card" id="authCard" aria-label="Conta e sincronização">\n    <div class="auth-heading"><div><h2 id="authModeTitle">Entrar na sua conta</h2><p class="hint">Acesse seus lançamentos em outros aparelhos com segurança.</p></div><span class="auth-user" id="authUserLabel"></span></div>\n    <form id="authForm" class="auth-form">\n      <div class="field"><label for="authEmail">E-mail</label><input id="authEmail" type="email" autocomplete="email" required placeholder="seu@email.com"></div>\n      <div class="field"><label for="authPassword">Senha</label><input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="Mínimo de 6 caracteres"></div>\n      <div class="auth-actions"><button type="submit" class="primary" id="authSubmit">Entrar</button><button type="button" class="secondary" id="authSwitch">Ainda não tenho conta · Criar conta</button></div>\n    </form>\n    <div id="authSigned" hidden class="auth-signed"><span>Conta conectada</span><button type="button" class="secondary" id="authSignout">Sair</button></div>\n    <p id="authStatus" class="auth-status" role="status">Os lançamentos continuam salvos neste aparelho até você entrar.</p>\n  </section>\n  <header class="head">
+  <section class="card auth-card" id="authCard" aria-label="Conta e sincronização">
+    <div class="auth-heading"><div><h2 id="authModeTitle">Entrar na sua conta</h2><p class="hint">Acesse seus lançamentos em outros aparelhos com segurança.</p></div><span class="auth-user" id="authUserLabel"></span></div>
+    <form id="authForm" class="auth-form">
+      <div class="field"><label for="authEmail">E-mail</label><input id="authEmail" type="email" autocomplete="email" required placeholder="seu@email.com"></div>
+      <div class="field"><label for="authPassword">Senha</label><input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="Mínimo de 6 caracteres"></div>
+      <div class="auth-actions"><button type="submit" class="primary" id="authSubmit">Entrar</button><button type="button" class="secondary" id="authSwitch">Ainda não tenho conta · Criar conta</button></div>
+    </form>
+    <div id="authSigned" hidden class="auth-signed"><span>Conta conectada</span><button type="button" class="secondary" id="authSignout">Sair</button></div>
+    <p id="authStatus" class="auth-status" role="status">Os lançamentos continuam salvos neste aparelho até você entrar.</p>
+  </section>
+  <header class="head">
     <h1>Caixa</h1>
     <div class="monthnav" id="monthnav" role="group" aria-label="Mês exibido">
       <button type="button" class="iconbtn" data-nav="-1" aria-label="Mês anterior">&#8249;</button>
@@ -155,6 +165,7 @@
 
   <p id="foot"></p>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>\n<script src="script.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="script.js" defer></script>
 </body>
 </html>
