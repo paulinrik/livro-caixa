@@ -365,3 +365,16 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
 .auth-status { margin:0; min-height:1.2em; font-size:13px; color:var(--muted); }
 .auth-status.ok { color:var(--rec); }
 .auth-status.err { color:var(--desp); }
+
+
+/* Ajustes do painel de conta em telas estreitas */
+.auth-card { min-width: 0; }
+.auth-form { display:grid; grid-template-columns:minmax(0,1fr); width:100%; align-items:stretch; }
+.auth-form .field, .auth-actions { grid-column:1 / -1; min-width:0; width:100%; }
+.auth-form .field input { display:block; box-sizing:border-box; width:100%; }
+.auth-actions { display:flex; flex-wrap:wrap; }
+.auth-actions button { max-width:100%; }
+.auth-actions #authSwitch { white-space:normal; }
+@media (min-width:860px) {
+  .app[data-screen="per"] { grid-template-areas:"auth auth" "head head" "tabs tabs" "pctl pctl" "psum psum" "pchart pchart" "pbrk plist" "bk bk" "foot foot"; }
+}
