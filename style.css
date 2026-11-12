@@ -378,3 +378,20 @@ svg.chart { display: block; width: 100%; height: auto; max-width: 100%; }
 @media (min-width:860px) {
   .app[data-screen="per"] { grid-template-areas:"auth auth" "head head" "tabs tabs" "pctl pctl" "psum psum" "pchart pchart" "pbrk plist" "bk bk" "foot foot"; }
 }
+
+
+/* Configurações e preferências */
+.auth-card { grid-area: auth; }
+.settings-card { grid-area: settings; }
+.theme-field { max-width: 420px; }
+.theme-field select { width:100%; min-height:44px; border:1px solid var(--line); border-radius:10px; background:var(--bg); padding:0 12px; }
+.app[data-screen="settings"] {
+  grid-template-columns:minmax(0,1fr);
+  grid-template-areas:"head" "tabs" "auth" "settings" "foot";
+}
+@media (min-width:860px) {
+  .app[data-screen="settings"] {
+    grid-template-columns:minmax(0,1fr);
+    grid-template-areas:"head" "tabs" "auth" "settings" "foot";
+  }
+}
